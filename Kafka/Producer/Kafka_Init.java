@@ -105,7 +105,7 @@ private KafkaProducer(ProducerConfig config, Serializer<K> keySerializer, Serial
                     time);
 
             List<InetSocketAddress> addresses = ClientUtils.parseAndValidateAddresses(config.getList(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
-            //更新元数据
+            //TODO 初始化过程中update并没有从kafka集群还上获取元数据，只是根据用户设置参数(如：IP)等进行赋值
             this.metadata.update(Cluster.bootstrap(addresses), time.milliseconds());
             ChannelBuilder channelBuilder = ClientUtils.createChannelBuilder(config.values());
 
