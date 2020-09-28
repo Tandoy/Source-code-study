@@ -3,13 +3,13 @@ Nagle算法主要是避免发送小的数据包，要求TCP连接上最多只能
 
 
  
-  if there is new data to send
+    if there is new data to send
 
-   if the window size >= MSS and available data is >= MSS
+    if the window size >= MSS and available data is >= MSS
   
     send complete MSS segment now
     
-  else
+    else
   
     if there is unconfirmed data still in the pipe
     
@@ -20,9 +20,9 @@ Nagle算法主要是避免发送小的数据包，要求TCP连接上最多只能
       
     end if
     
-  end if
+    end if
   
-end if
+    end if
 
 
 
