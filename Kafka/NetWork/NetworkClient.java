@@ -435,10 +435,14 @@ public class NetworkClient implements KafkaClient {
      */
     private void handleCompletedReceives(List<ClientResponse> responses, long now) {
         for (NetworkReceive receive : this.selector.completedReceives()) {
+            //获取broker
             String source = receive.source();
+            //处理并在请求暂存中移除此请求：inFlightRequests
             ClientRequest req = inFlightRequests.completeNext(source);
+            //解析报文
             Struct body = parseResponse(receive.payload(), req.request().header());
             if (!metadataUpdater.maybeHandleCompletedReceive(req, now, body))
+                //将req添加至响应队列
                 responses.add(new ClientResponse(req, now, false, body));
         }
     }

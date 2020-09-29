@@ -554,7 +554,9 @@ public class Selector implements Selectable {
      * adds a receive to staged receives
      */
     private void addToStagedReceives(KafkaChannel channel, NetworkReceive receive) {
+        //判断当前连接是否已存在已接受到还没处理的请求 队列中
         if (!stagedReceives.containsKey(channel))
+            //若没有则新建
             stagedReceives.put(channel, new ArrayDeque<NetworkReceive>());
 
         Deque<NetworkReceive> deque = stagedReceives.get(channel);

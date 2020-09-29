@@ -123,8 +123,9 @@ public class KafkaChannel {
         if (receive == null) {
             receive = new NetworkReceive(maxReceiveSize, id);
         }
-
+        //一直读取数据
         receive(receive);
+        //判断是否读取完成
         if (receive.complete()) {
             receive.payload().rewind();
             result = receive;
