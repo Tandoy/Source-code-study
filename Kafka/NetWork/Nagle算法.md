@@ -3,20 +3,31 @@ Nagle算法主要是避免发送小的数据包，要求TCP连接上最多只能
 
 
  
-if there is new data to send
-  if the window size >= MSS and available data is >= MSS
+    if there is new data to send
+
+    if the window size >= MSS and available data is >= MSS
+  
     send complete MSS segment now
-  else
+    
+    else
+  
     if there is unconfirmed data still in the pipe
+    
       enqueue data in the buffer until an acknowledge is received
     else
+    
       send data immediately
+      
     end if
-  end if
-end if
+    
+    end if
+  
+    end if
+
 
 
 从上述算法中看出：
+
 1. 对于MSS的片段直接发送
 
 2. 如果有没有被确认的data在缓冲区内，先将待发送的数据放到buffer中直到被发送的数据被确认【最多只能有一个未被确认的小分组】
