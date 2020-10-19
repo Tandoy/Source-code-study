@@ -289,6 +289,7 @@ private[deploy] class Master(
       }
 
     case ExecutorStateChanged(appId, execId, state, message, exitStatus) =>
+      // 通过idToApp缓存以及execId得到Executor信息
       val execOption = idToApp.get(appId).flatMap(app => app.executors.get(execId))
       execOption match {
         case Some(exec) =>
@@ -297,6 +298,7 @@ private[deploy] class Master(
           exec.state = state
 
           if (state == ExecutorState.RUNNING) {
+            // 将Executor运行状态变为LAUNCHING
             assert(oldState == ExecutorState.LAUNCHING,
               s"executor $execId state transfer from $oldState to RUNNING is illegal")
             appInfo.resetRetryCount()
@@ -305,19 +307,23 @@ private[deploy] class Master(
           exec.application.driver.send(ExecutorUpdated(execId, state, message, exitStatus, false))
 
           if (ExecutorState.isFinished(state)) {
+            //  当Executor已经快执行完成时不进行移除
             // Remove this executor from the worker and app
             logInfo(s"Removing executor ${exec.fullId} because it is $state")
             // If an application has already finished, preserve its
             // state to display its information properly on the UI
             if (!appInfo.isFinished) {
+              //  状态不为完成从applicationInfo中移除此Executor
               appInfo.removeExecutor(exec)
             }
+            //  从worker中移除此Executor
             exec.worker.removeExecutor(exec)
 
             val normalExit = exitStatus == Some(0)
             // Only retry certain number of times so we don't go into an infinite loop.
             // Important note: this code path is not exercised by tests, so be very careful when
             // changing this `if` condition.
+            //  不是正常退出+已经重试次数大于设定值+设定值是要大于零 进行异常报错处理
             if (!normalExit
               && appInfo.incrementRetryCount() >= MAX_EXECUTOR_RETRIES
               && MAX_EXECUTOR_RETRIES >= 0) { // < 0 disables this application-killing path
@@ -325,6 +331,7 @@ private[deploy] class Master(
               if (!execs.exists(_.state == ExecutorState.RUNNING)) {
                 logError(s"Application ${appInfo.desc.name} with ID ${appInfo.id} failed " +
                   s"${appInfo.retryCount} times; removing it")
+                //  如果当前Executor错误退出则将此Executor对应的applocation进行移除并将application状态设置为失败
                 removeApplication(appInfo, ApplicationState.FAILED)
               }
             }
@@ -884,8 +891,10 @@ private[deploy] class Master(
   }
 
   def removeApplication(app: ApplicationInfo, state: ApplicationState.Value) {
+    //  在apps缓存中查找此application
     if (apps.contains(app)) {
       logInfo("Removing app " + app.id)
+      // 从缓存中移除并更新相关状态以及解除绑定
       apps -= app
       idToApp -= app.id
       endpointToApp -= app.driver
@@ -899,19 +908,24 @@ private[deploy] class Master(
         completedApps.trimStart(toRemove)
       }
       completedApps += app // Remember it in our history
+      //  将此application从等待调度队列中移除
       waitingApps -= app
 
       for (exec <- app.executors.values) {
+        //  循环杀掉application中还存在的executor
         killExecutor(exec)
       }
       app.markFinished(state)
       if (state != ApplicationState.FINISHED) {
         app.driver.send(ApplicationRemoved(state.toString))
       }
+      //  使用持久化引擎将此application的持久化信息进程删除
       persistenceEngine.removeApplication(app)
+      //  调用schedule()方法
       schedule()
 
       // Tell all workers that the application has finished, so they can clean up any app state.
+      // 发送消息至此application下所有的worker，告诉它们更新状态
       workers.foreach { w =>
         w.endpoint.send(ApplicationFinished(app.id))
       }
@@ -994,8 +1008,10 @@ private[deploy] class Master(
    * Ask the worker on which the specified executor is launched to kill the executor.
    */
   private def killExecutor(exec: ExecutorDesc): Unit = {
+    //  从worker中移除此executor
     exec.worker.removeExecutor(exec)
     exec.worker.endpoint.send(KillExecutor(masterUrl, exec.application.id, exec.id))
+    //  将executor状态设置为KILLED
     exec.state = ExecutorState.KILLED
   }
 
