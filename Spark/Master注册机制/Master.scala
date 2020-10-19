@@ -336,7 +336,9 @@ private[deploy] class Master(
 
     case DriverStateChanged(driverId, state, exception) =>
       state match {
+          //  当driver状态为完成、被杀掉、失败是进行移除操作
         case DriverState.ERROR | DriverState.FINISHED | DriverState.KILLED | DriverState.FAILED =>
+          //  移除当前driver
           removeDriver(driverId, state, exception)
         case _ =>
           throw new Exception(s"Received unexpected state update for driver $driverId: $state")
@@ -1046,19 +1048,26 @@ private[deploy] class Master(
                             driverId: String,
                             finalState: DriverState,
                             exception: Option[Exception]) {
+    // 在drivers缓存中查找此driverid
     drivers.find(d => d.id == driverId) match {
       case Some(driver) =>
         logInfo(s"Removing driver: $driverId")
+        //  从缓存中移除
         drivers -= driver
         if (completedDrivers.size >= RETAINED_DRIVERS) {
           val toRemove = math.max(RETAINED_DRIVERS / 10, 1)
           completedDrivers.trimStart(toRemove)
         }
+        //  将此driverid加入completedDrivers缓存中
         completedDrivers += driver
+        //  使用持久化引擎进行此driver的持久化信息移除
         persistenceEngine.removeDriver(driver)
+        //  设置当前driver的相关信息：状态、异常信息
         driver.state = finalState
         driver.exception = exception
+        //  把当前driver下的每个worker进行移除操作
         driver.worker.foreach(w => w.removeDriver(driver))
+        //  调用schedule方法
         schedule()
       case None =>
         logWarning(s"Asked to remove unknown driver: $driverId")
