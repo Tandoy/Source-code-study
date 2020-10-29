@@ -2715,23 +2715,25 @@ object SparkContext extends Logging {
    */
     //  1.创建TaskScheduler
   private def createTaskScheduler(
-      sc: SparkContext,
+      sc: SparkContext, // 用sparkconf注册sparkcontext包括 master、appName、sparkHome等用户提交作业时的自定义信息
       master: String,
       deployMode: String): (SchedulerBackend, TaskScheduler) = {
     import SparkMasterRegex._
 
     // When running locally, don't try to re-execute tasks on failure.
-    val MAX_LOCAL_TASK_FAILURES = 1
+    val MAX_LOCAL_TASK_FAILURES = 1   //  本地运行是最多容忍任务失败数 默认为1
 
     master match {
       //  2.根据master注册方式进行模式匹配
       case "local" =>
         val scheduler = new TaskSchedulerImpl(sc, MAX_LOCAL_TASK_FAILURES, isLocal = true)
+        //  由scheduler构建backend 默认核数为1
         val backend = new LocalSchedulerBackend(sc.getConf, scheduler, 1)
         scheduler.initialize(backend)
         (backend, scheduler)
-
+        // local模式下制定线程数
       case LOCAL_N_REGEX(threads) =>
+        // localCpuCount：获取当前可用cpu
         def localCpuCount: Int = Runtime.getRuntime.availableProcessors()
         // local[*] estimates the number of cores on the machine; local[N] uses exactly N threads.
         val threadCount = if (threads == "*") localCpuCount else threads.toInt
@@ -2742,7 +2744,7 @@ object SparkContext extends Logging {
         val backend = new LocalSchedulerBackend(sc.getConf, scheduler, threadCount)
         scheduler.initialize(backend)
         (backend, scheduler)
-
+      // local模式下制定线程数以及最多容忍任务失败数
       case LOCAL_N_FAILURES_REGEX(threads, maxFailures) =>
         def localCpuCount: Int = Runtime.getRuntime.availableProcessors()
         // local[*, M] means the number of cores on the computer with M failures
@@ -2817,6 +2819,7 @@ object SparkContext extends Logging {
  */
 private object SparkMasterRegex {
   // Regular expression used for local[N] and local[*] master formats
+  // 用户指定local模式下的线程数
   val LOCAL_N_REGEX = """local\[([0-9]+|\*)\]""".r
   // Regular expression for local[N, maxRetries], used in tests with failing tasks
   val LOCAL_N_FAILURES_REGEX = """local\[([0-9]+|\*)\s*,\s*([0-9]+)\]""".r
