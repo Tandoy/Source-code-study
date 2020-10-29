@@ -174,7 +174,7 @@ private[spark] class TaskSchedulerImpl(
   }
 
   def initialize(backend: SchedulerBackend) {
-    //  此处bankend即为传入的StandaloneSchedulerBackend
+    //  此处bankend即为传入的不同模式下创建的SchedulerBackend
     this.backend = backend
     schedulableBuilder = {
       schedulingMode match {
