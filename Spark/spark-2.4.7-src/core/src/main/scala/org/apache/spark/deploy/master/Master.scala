@@ -61,16 +61,16 @@ private[deploy] class Master(
   private val RECOVERY_MODE = conf.get("spark.deploy.recoveryMode", "NONE")
   private val MAX_EXECUTOR_RETRIES = conf.getInt("spark.deploy.maxExecutorRetries", 10)
 
-  val workers = new HashSet[WorkerInfo]
+  val workers = new HashSet[WorkerInfo] //已经向master注册完成的worker，并且采用hashset不会重复
   val idToApp = new HashMap[String, ApplicationInfo]
-  private val waitingApps = new ArrayBuffer[ApplicationInfo]
-  val apps = new HashSet[ApplicationInfo]
+  private val waitingApps = new ArrayBuffer[ApplicationInfo] //存放已经向master完成注册的application，待调度队列缓存
+  val apps = new HashSet[ApplicationInfo]//已经向master注册完成的application，并且采用hashset不会重复
 
-  private val idToWorker = new HashMap[String, WorkerInfo]
-  private val addressToWorker = new HashMap[RpcAddress, WorkerInfo]
+  private val idToWorker = new HashMap[String, WorkerInfo] //已经向master注册完成的worker进行唯一id的一一绑定
+  private val addressToWorker = new HashMap[RpcAddress, WorkerInfo] //存放worker-address的一一对应缓存
 
-  private val endpointToApp = new HashMap[RpcEndpointRef, ApplicationInfo]
-  private val addressToApp = new HashMap[RpcAddress, ApplicationInfo]
+  private val endpointToApp = new HashMap[RpcEndpointRef, ApplicationInfo] //存放消息发送方与application的对应关系缓存
+  private val addressToApp = new HashMap[RpcAddress, ApplicationInfo] //存放application与address一一对应关系的缓存
   private val completedApps = new ArrayBuffer[ApplicationInfo]
   private var nextAppNumber = 0
 
@@ -765,30 +765,37 @@ private[deploy] class Master(
       ExecutorAdded(exec.id, worker.id, worker.hostPort, exec.cores, exec.memory))
   }
 
+  // worker启动之后主动向mater进行注册
   private def registerWorker(worker: WorkerInfo): Boolean = {
     // There may be one or more refs to dead workers on this same node (w/ different ID's),
     // remove them.
+    // 1.先检查此worker是否已经在master上注册过
+    // 1.1 若已经注册过并且状态为死亡则进行移除
     workers.filter { w =>
       (w.host == worker.host && w.port == worker.port) && (w.state == WorkerState.DEAD)
     }.foreach { w =>
       workers -= w
     }
-
+    // 2.得到worker的网络地址
     val workerAddress = worker.endpoint.address
+    // 3.对当前worker的address进行判断
     if (addressToWorker.contains(workerAddress)) {
+       // 3.1当前要注册的worker的网络地址已经在缓存中
       val oldWorker = addressToWorker(workerAddress)
       if (oldWorker.state == WorkerState.UNKNOWN) {
-        // A worker registering from UNKNOWN implies that the worker was restarted during recovery.
-        // The old worker must thus be dead, so we will remove it and accept the new worker.
+        //3.2 并且oldWorker状态为UNKNOWN则直接将oldworker进行移除（oldworker与address接触绑定）
         removeWorker(oldWorker, "Worker replaced by a new worker with same address")
       } else {
+        //3.3 当前worker-address的缓存中已经活跃状态的worker则直接报错
         logInfo("Attempted to re-register worker at same address: " + workerAddress)
         return false
       }
     }
-
+    //4.将满足条件的worker加入缓存中
     workers += worker
+    //5.进行id-worker的一一绑定
     idToWorker(worker.id) = worker
+    //6.进行address-worker的一一绑定
     addressToWorker(workerAddress) = worker
     true
   }
@@ -848,18 +855,27 @@ private[deploy] class Master(
     new ApplicationInfo(now, appId, desc, date, driver, defaultCores)
   }
 
+  //application向master进行注册
   private def registerApplication(app: ApplicationInfo): Unit = {
+    //1.得到当前需注册application的address
     val appAddress = app.driver.address
+    //2.对当前application的address进行判断
     if (addressToApp.contains(appAddress)) {
+       //2.1 若当前app的网络地址已经在缓存中存在即重复注册直接报错
       logInfo("Attempted to re-register application at same address: " + appAddress)
       return
     }
-
+    //3.监控application运行状态相关，暂不深究
     applicationMetricsSystem.registerSource(app.appSource)
+    //4.满足条件的app加入缓存
     apps += app
+    //5.id-app进行绑定
     idToApp(app.id) = app
+    //6.消息发送发-application绑定
     endpointToApp(app.driver) = app
+    //7.address-app绑定
     addressToApp(appAddress) = app
+    //8.将app存入待调度队列中
     waitingApps += app
   }
 
