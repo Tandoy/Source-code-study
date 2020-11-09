@@ -77,7 +77,7 @@ private[deploy] class Master(
   private val drivers = new HashSet[DriverInfo] //存放Driver，采用HashSet不会重复
   private val completedDrivers = new ArrayBuffer[DriverInfo] //存放已完成移除操作的driver
   // Drivers currently spooled for scheduling
-  private val waitingDrivers = new ArrayBuffer[DriverInfo]
+  private val waitingDrivers = new ArrayBuffer[DriverInfo] //存放待调度的driver
   private var nextDriverNumber = 0
 
   Utils.checkHost(address.host)
@@ -686,22 +686,33 @@ private[deploy] class Master(
   /**
    * Schedule and launch executors on workers
    */
+  /**
+   * 在worker上进行调度
+   */
   private def startExecutorsOnWorkers(): Unit = {
     // Right now this is a very simple FIFO scheduler. We keep trying to fit in the first app
     // in the queue, then the second app, etc.
+    //默认FIFO先进先出调度scheduler
     for (app <- waitingApps) {
+      //取application的所需最大core
       val coresPerExecutor = app.desc.coresPerExecutor.getOrElse(1)
       // If the cores left is less than the coresPerExecutor,the cores left will not be allocated
       if (app.coresLeft >= coresPerExecutor) {
+        //所剩core大于此application所需core数
         // Filter out workers that don't have enough resources to launch an executor
+        //满足条件的可用worker：ALIVE + memoryFree>application所需内存 + coresFree>application所需core数
+        //根据corefree进行倒序排列
         val usableWorkers = workers.toArray.filter(_.state == WorkerState.ALIVE)
           .filter(worker => worker.memoryFree >= app.desc.memoryPerExecutorMB &&
             worker.coresFree >= coresPerExecutor)
           .sortBy(_.coresFree).reverse
+        //TODO 给application、usableWorker分配core spreadOutApps???
         val assignedCores = scheduleExecutorsOnWorkers(app, usableWorkers, spreadOutApps)
 
         // Now that we've decided how many cores to allocate on each worker, let's allocate them
+        //每个worker已分配好cores与worker的对应关系，接下来进行实际分配
         for (pos <- 0 until usableWorkers.length if assignedCores(pos) > 0) {
+          //将满足条件的worker的所需资源发至Executor
           allocateWorkerResourceToExecutors(
             app, assignedCores(pos), app.desc.coresPerExecutor, usableWorkers(pos))
         }
@@ -737,13 +748,21 @@ private[deploy] class Master(
    * Schedule the currently available resources among waiting apps. This method will be called
    * every time a new app joins or resource availability changes.
    */
+  /**
+   * 负责调度可用资源以及应用的主方法
+   * 每当有新application加入以及可用资源改变此方法即被调用
+   */
   private def schedule(): Unit = {
+    //1.判断master状态是否为ALIVE
     if (state != RecoveryState.ALIVE) {
       return
     }
     // Drivers take strict precedence over executors
+    // TODO 2.获取当前状态为ALIVE的worker并且是排序的数组 ???
     val shuffledAliveWorkers = Random.shuffle(workers.toSeq.filter(_.state == WorkerState.ALIVE))
+    // 3.AliveWorker个数
     val numWorkersAlive = shuffledAliveWorkers.size
+    // TODO 4. 以numWorkersAlive为游标的计数器 ???
     var curPos = 0
     for (driver <- waitingDrivers.toList) { // iterate over a copy of waitingDrivers
       // We assign workers to each waiting driver in a round-robin fashion. For each driver, we
@@ -751,17 +770,27 @@ private[deploy] class Master(
       // explored all alive workers.
       var launched = false
       var numWorkersVisited = 0
+      //5.已调度worker小于当前Alive的Worker总数 以及 launched为FALSE
       while (numWorkersVisited < numWorkersAlive && !launched) {
+        //6.根据游标获取对应的worker
         val worker = shuffledAliveWorkers(curPos)
+        //7.numWorkersVisited自增
         numWorkersVisited += 1
+        //8.当前空闲内存大于当前driver所需内存大小 以及 当前剩余core大于driver所需core
         if (worker.memoryFree >= driver.desc.mem && worker.coresFree >= driver.desc.cores) {
+          //9.进行调度
           launchDriver(worker, driver)
+          //10.将此driver从待调度的缓存中移除
           waitingDrivers -= driver
+          //11.改变此driver的状态
           launched = true
         }
+        //12.游标自增
         curPos = (curPos + 1) % numWorkersAlive
       }
     }
+    //13.在对应worker上开启执行driver任务
+    // 此方法也为资源调度的最终方法（FIFO、公平调度等）
     startExecutorsOnWorkers()
   }
 
@@ -1047,9 +1076,13 @@ private[deploy] class Master(
 
   private def launchDriver(worker: WorkerInfo, driver: DriverInfo) {
     logInfo("Launching driver " + driver.id + " on worker " + worker.id)
+    //将driver加入对应的worker中
     worker.addDriver(driver)
+    //driver与worker进行一一对应
     driver.worker = Some(worker)
+    //worker发送此driver信息至master
     worker.endpoint.send(LaunchDriver(driver.id, driver.desc))
+    //改变driver的状态
     driver.state = DriverState.RUNNING
   }
 
