@@ -97,9 +97,9 @@ private[spark] class ApplicationInfo(
     }
   }
 
-  private val requestedCores = desc.maxCores.getOrElse(defaultCores)
+  private val requestedCores = desc.maxCores.getOrElse(defaultCores) //application提交时自定义的core数
 
-  private[master] def coresLeft: Int = requestedCores - coresGranted
+  private[master] def coresLeft: Int = requestedCores - coresGranted //requestedCores（自定义core数）- coresGranted（）
 
   private var _retryCount = 0
 
