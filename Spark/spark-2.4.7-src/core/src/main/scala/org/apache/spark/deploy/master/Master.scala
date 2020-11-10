@@ -636,7 +636,9 @@ private[deploy] class Master(
 
     /** Return whether the specified worker can launch an executor for this app. */
     def canLaunchExecutor(pos: Int): Boolean = {
+      //application所需core数大于默认值1，也就是需要再分配Executor
       val keepScheduling = coresToAssign >= minCoresPerExecutor
+      //当前Worker总共可分配的核数减去已经分配的核数大于分配一个exe的最小合数，说明可以分配
       val enoughCores = usableWorkers(pos).coresFree - assignedCores(pos) >= minCoresPerExecutor
 
       // If we allow multiple executors per worker, then we can always launch new executors.
