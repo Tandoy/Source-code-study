@@ -111,6 +111,8 @@ private[deploy] class Master(
   // As a temporary workaround before better ways of configuring memory, we allow users to set
   // a flag that will perform round-robin scheduling across the nodes (spreading out each app
   // among all the nodes) instead of trying to consolidate each app onto a small # of nodes.
+  //spreadOutApps:影响了资源分配的方式。如果spreadOutApps是true,那么尽可能的在多个worker上平均分配executor.
+  //              如果是false,那么先在一个worker上尽可能多的分配executor
   private val spreadOutApps = conf.getBoolean("spark.deploy.spreadOut", true)
 
   // Default maxCores for applications that don't specify it (i.e. pass Int.MaxValue)
@@ -622,13 +624,14 @@ private[deploy] class Master(
       app: ApplicationInfo,
       usableWorkers: Array[WorkerInfo],
       spreadOutApps: Boolean): Array[Int] = {
-    val coresPerExecutor = app.desc.coresPerExecutor
-    val minCoresPerExecutor = coresPerExecutor.getOrElse(1)
-    val oneExecutorPerWorker = coresPerExecutor.isEmpty
-    val memoryPerExecutor = app.desc.memoryPerExecutorMB
-    val numUsable = usableWorkers.length
-    val assignedCores = new Array[Int](numUsable) // Number of cores to give to each worker
-    val assignedExecutors = new Array[Int](numUsable) // Number of new executors on each worker
+    val coresPerExecutor = app.desc.coresPerExecutor//每个exectuor分配多少核数
+    val minCoresPerExecutor = coresPerExecutor.getOrElse(1)//没有配置，则exe默认最少1个核
+    val oneExecutorPerWorker = coresPerExecutor.isEmpty//是否每个Worker分配一个Executor
+    val memoryPerExecutor = app.desc.memoryPerExecutorMB//每个exe分配多少MB内存
+    val numUsable = usableWorkers.length//可分配资源的Worker数，满足分配条件按照所需core从小到大
+    val assignedCores = new Array[Int](numUsable) // 每个worker分配的core数
+    val assignedExecutors = new Array[Int](numUsable) // 每个worker分配的executor数
+    //app还需多少core资源和可分配资源Worker所有可分配核数之和的最小值
     var coresToAssign = math.min(app.coresLeft, usableWorkers.map(_.coresFree).sum)
 
     /** Return whether the specified worker can launch an executor for this app. */
@@ -687,6 +690,7 @@ private[deploy] class Master(
    * Schedule and launch executors on workers
    */
   /**
+   * 启动workers
    * 在worker上进行调度
    */
   private def startExecutorsOnWorkers(): Unit = {
@@ -701,12 +705,12 @@ private[deploy] class Master(
         //所剩core大于此application所需core数
         // Filter out workers that don't have enough resources to launch an executor
         //满足条件的可用worker：ALIVE + memoryFree>application所需内存 + coresFree>application所需core数
-        //根据corefree进行倒序排列
+        //根据corefree进行倒序排列组成的workers
         val usableWorkers = workers.toArray.filter(_.state == WorkerState.ALIVE)
           .filter(worker => worker.memoryFree >= app.desc.memoryPerExecutorMB &&
             worker.coresFree >= coresPerExecutor)
           .sortBy(_.coresFree).reverse
-        //TODO 给application、usableWorker分配core spreadOutApps???
+        //给每个worker分配多少个cores（cpu数量），数组
         val assignedCores = scheduleExecutorsOnWorkers(app, usableWorkers, spreadOutApps)
 
         // Now that we've decided how many cores to allocate on each worker, let's allocate them
@@ -751,6 +755,9 @@ private[deploy] class Master(
   /**
    * 负责调度可用资源以及应用的主方法
    * 每当有新application加入以及可用资源改变此方法即被调用
+   * worker，Excetor，CPU core之间的关系：
+   * spark一个集群会有多个master节点和多个worker节点，master节点负责管理worker节点，worker节点管理Excetor。
+   * 一个worker节点包含多个Excetor，每个Excetor多个cpu core和一定memory。
    */
   private def schedule(): Unit = {
     //1.判断master状态是否为ALIVE
@@ -758,12 +765,15 @@ private[deploy] class Master(
       return
     }
     // Drivers take strict precedence over executors
-    // TODO 2.获取当前状态为ALIVE的worker并且是排序的数组 ???
+    // 2.Random shuffle的原理，对传入的集合元素(状态为alive的worker)进行随机的打乱
     val shuffledAliveWorkers = Random.shuffle(workers.toSeq.filter(_.state == WorkerState.ALIVE))
     // 3.AliveWorker个数
     val numWorkersAlive = shuffledAliveWorkers.size
-    // TODO 4. 以numWorkersAlive为游标的计数器 ???
+    // 4. 以numWorkersAlive为游标的计数器
+    //首先调度driver，只有用yarn-cluster模式提交的时候，才会注册driver。standalone和yarn-client模式，都会在本地直接启动driver，
+    //而不会来注册driver，更不可能让master调度driver
     var curPos = 0
+    //在存放待调度的driver集合中循环
     for (driver <- waitingDrivers.toList) { // iterate over a copy of waitingDrivers
       // We assign workers to each waiting driver in a round-robin fashion. For each driver, we
       // start from the last worker that was assigned a driver, and continue onwards until we have
@@ -778,7 +788,7 @@ private[deploy] class Master(
         numWorkersVisited += 1
         //8.当前空闲内存大于当前driver所需内存大小 以及 当前剩余core大于driver所需core
         if (worker.memoryFree >= driver.desc.mem && worker.coresFree >= driver.desc.cores) {
-          //9.进行调度
+          //9.启动driver
           launchDriver(worker, driver)
           //10.将此driver从待调度的缓存中移除
           waitingDrivers -= driver
@@ -1080,9 +1090,9 @@ private[deploy] class Master(
     worker.addDriver(driver)
     //driver与worker进行一一对应
     driver.worker = Some(worker)
-    //worker发送此driver信息至master
+    //调用worker的actor，给它发送launchDriver消息，让worker来启动driver
     worker.endpoint.send(LaunchDriver(driver.id, driver.desc))
-    //改变driver的状态
+    //将driver的状态设置成running
     driver.state = DriverState.RUNNING
   }
 
