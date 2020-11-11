@@ -577,8 +577,10 @@ private[deploy] class Worker(
         }
       }
 
+      //worker启动driver
     case LaunchDriver(driverId, driverDesc) =>
       logInfo(s"Asked to launch driver $driverId")
+      //1.创建DriverRunner
       val driver = new DriverRunner(
         conf,
         driverId,
@@ -588,10 +590,13 @@ private[deploy] class Worker(
         self,
         workerUri,
         securityMgr)
+      //2.DriverRunner与driver一一对应
       drivers(driverId) = driver
+      //3.内部启动进程
       driver.start()
-
+      //4.更新coresUsed已用core数
       coresUsed += driverDesc.cores
+      //5.更新memoryUsed已用内存
       memoryUsed += driverDesc.mem
 
     case KillDriver(driverId) =>
