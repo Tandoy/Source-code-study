@@ -78,20 +78,27 @@ private[deploy] class DriverRunner(
   }
 
   /** Starts a thread to run and manage the driver. */
+  /**
+   * 启动线程来启动和管理driver
+   */
   private[worker] def start() = {
+    //线程体
     new Thread("DriverRunner for " + driverId) {
       override def run() {
         var shutdownHook: AnyRef = null
         try {
+          //1.若worker为shutting，则driver也被kill
           shutdownHook = ShutdownHookManager.addShutdownHook { () =>
             logInfo(s"Worker shutting down, killing driver $driverId")
             kill()
           }
 
           // prepare driver jars and run driver
+          //2.准备driver jars并且run driver
           val exitCode = prepareAndRunDriver()
 
           // set final state depending on if forcibly killed and process exit code
+          //3.根据exitcode进行异常处理
           finalState = if (exitCode == 0) {
             Some(DriverState.FINISHED)
           } else if (killed) {
@@ -111,8 +118,10 @@ private[deploy] class DriverRunner(
         }
 
         // notify worker of final driver state, possible exception
+        //4.worker发送driver run结束后的状态改变信息至master
         worker.send(DriverStateChanged(driverId, finalState.get, finalException))
       }
+      //5.启动线程
     }.start()
   }
 
@@ -136,10 +145,13 @@ private[deploy] class DriverRunner(
    * Will throw an exception if there are errors preparing the directory.
    */
   private def createWorkingDirectory(): File = {
+    //1.根据workerid以及driverid创建文件夹目录
     val driverDir = new File(workDir, driverId)
+    //2.判断目录是否存在 && driver工作目录是否穿创建成功
     if (!driverDir.exists() && !driverDir.mkdirs()) {
       throw new IOException("Failed to create directory " + driverDir)
     }
+    //3.返回成功创建的driver工作目录
     driverDir
   }
 
@@ -148,10 +160,13 @@ private[deploy] class DriverRunner(
    * Will throw an exception if there are errors downloading the jar.
    */
   private def downloadUserJar(driverDir: File): String = {
+    //1.得到jar文件名
     val jarFileName = new URI(driverDesc.jarUrl).getPath.split("/").last
+    //2.拷贝user jar至本地目录
     val localJarFile = new File(driverDir, jarFileName)
     if (!localJarFile.exists()) { // May already exist if running multiple workers on one node
       logInfo(s"Copying user jar ${driverDesc.jarUrl} to $localJarFile")
+      //3.进行拷贝
       Utils.fetchFile(
         driverDesc.jarUrl,
         driverDir,
@@ -165,11 +180,14 @@ private[deploy] class DriverRunner(
           s"Can not find expected jar $jarFileName which should have been loaded in $driverDir")
       }
     }
+    //4.本地目录的绝对路径
     localJarFile.getAbsolutePath
   }
 
   private[worker] def prepareAndRunDriver(): Int = {
+    //1.创建driver工作目录文件夹
     val driverDir = createWorkingDirectory()
+    //2.下载相关jar包至已穿创建好的driver工作目录下
     val localJarFilename = downloadUserJar(driverDir)
 
     def substituteVariables(argument: String): String = argument match {
@@ -179,42 +197,58 @@ private[deploy] class DriverRunner(
     }
 
     // TODO: If we add ability to submit multiple jars they should also be added here
+    //3.启动driver命令 + 安全管理 + driver所需内存 + spark绝对路径 + worker地址 + user jar的本地路径
+    // 用以上来创建ProcessBuilder
     val builder = CommandUtils.buildProcessBuilder(driverDesc.command, securityManager,
       driverDesc.mem, sparkHome.getAbsolutePath, substituteVariables)
-
-    runDriver(builder, driverDir, driverDesc.supervise)
+    //4.启动driver
+    runDriver(builder, driverDir, driverDesc.supervise) //supervise：负责进行管理，true：失败后自动重新启动进程
   }
 
+  /**
+   * 启动driver
+   * @param builder
+   * @param baseDir
+   * @param supervise
+   * @return
+   */
   private def runDriver(builder: ProcessBuilder, baseDir: File, supervise: Boolean): Int = {
     builder.directory(baseDir)
+    //1.初始化
     def initialize(process: Process): Unit = {
       // Redirect stdout and stderr to files
       val stdout = new File(baseDir, "stdout")
+      // 读文件至stdout
       CommandUtils.redirectStream(process.getInputStream, stdout)
 
       val stderr = new File(baseDir, "stderr")
       val formattedCommand = builder.command.asScala.mkString("\"", "\" \"", "\"")
       val header = "Launch Command: %s\n%s\n\n".format(formattedCommand, "=" * 40)
       Files.append(header, stderr, StandardCharsets.UTF_8)
+      // 读文件至stderr
       CommandUtils.redirectStream(process.getErrorStream, stderr)
     }
+    // 启动
     runCommandWithRetry(ProcessBuilderLike(builder), initialize, supervise)
   }
 
   private[worker] def runCommandWithRetry(
       command: ProcessBuilderLike, initialize: Process => Unit, supervise: Boolean): Int = {
+    //默认返回值-1（失败）
     var exitCode = -1
     // Time to wait between submission retries.
     var waitSeconds = 1
     // A run of this many seconds resets the exponential back-off.
     val successfulRunDuration = 5
     var keepTrying = !killed
-
+    // 当此前任务没有被kill
     while (keepTrying) {
+      //相关命令打印日志
       logInfo("Launch Command: " + command.command.mkString("\"", "\" \"", "\""))
-
+      //异步锁
       synchronized {
         if (killed) { return exitCode }
+        //执行命令
         process = Some(command.start())
         initialize(process.get)
       }
@@ -222,13 +256,15 @@ private[deploy] class DriverRunner(
       val processStart = clock.getTimeMillis()
       exitCode = process.get.waitFor()
 
-      // check if attempting another run
+      // 检查是否接受另一个run
       keepTrying = supervise && exitCode != 0 && !killed
       if (keepTrying) {
+        //当前时间-开始时间 = 上一个run耗费时长
         if (clock.getTimeMillis() - processStart > successfulRunDuration * 1000L) {
           waitSeconds = 1
         }
         logInfo(s"Command exited with status $exitCode, re-launching after $waitSeconds s.")
+        //当前线程睡眠
         sleeper.sleep(waitSeconds)
         waitSeconds = waitSeconds * 2 // exponential back-off
       }
