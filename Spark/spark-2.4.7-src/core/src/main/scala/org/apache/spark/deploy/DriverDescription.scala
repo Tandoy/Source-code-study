@@ -21,7 +21,7 @@ private[deploy] case class DriverDescription(
     jarUrl: String,
     mem: Int,
     cores: Int,
-    supervise: Boolean,
+    supervise: Boolean, //负责进行管理，true：失败后自动重新启动
     command: Command) {
 
   override def toString: String = s"DriverDescription (${command.mainClass})"
