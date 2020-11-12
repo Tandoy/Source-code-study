@@ -1902,20 +1902,25 @@ private[spark] object Utils extends Logging {
    */
   def terminateProcess(process: Process, timeoutMs: Long): Option[Int] = {
     // Politely destroy first
+    //将processkill
     process.destroy()
     if (process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
       // Successful exit
+      //执行kill 小于默认10000ms则成功kill正常退出
       Option(process.exitValue())
     } else {
       try {
+        //再次强行kill proce（实际底层还是调用destroy()方法）
         process.destroyForcibly()
       } catch {
+            //异常处理
         case NonFatal(e) => logWarning("Exception when attempting to kill process", e)
       }
       // Wait, again, although this really should return almost immediately
       if (process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
         Option(process.exitValue())
       } else {
+        //强制kill process失败后报超时错误
         logWarning("Timed out waiting to forcibly kill process")
         None
       }
