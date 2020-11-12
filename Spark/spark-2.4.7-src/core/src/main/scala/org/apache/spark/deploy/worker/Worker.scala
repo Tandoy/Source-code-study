@@ -137,7 +137,7 @@ private[deploy] class Worker(
   var workDir: File = null
   val finishedExecutors = new LinkedHashMap[String, ExecutorRunner]
   val drivers = new HashMap[String, DriverRunner]
-  val executors = new HashMap[String, ExecutorRunner]
+  val executors = new HashMap[String, ExecutorRunner] //用于存放executor与ExecutorRunner对应关系的缓存
   val finishedDrivers = new LinkedHashMap[String, DriverRunner]
   val appDirectories = new HashMap[String, Seq[String]]
   val finishedApps = new HashSet[String]
@@ -490,15 +490,16 @@ private[deploy] class Worker(
     case ReconnectWorker(masterUrl) =>
       logInfo(s"Master with url $masterUrl requested this worker to reconnect.")
       registerWithMaster()
-
+    //worker启动executor
     case LaunchExecutor(masterUrl, appId, execId, appDesc, cores_, memory_) =>
+      //对传入的master url进行状态判断
       if (masterUrl != activeMasterUrl) {
         logWarning("Invalid Master (" + masterUrl + ") attempted to launch executor.")
       } else {
         try {
           logInfo("Asked to launch executor %s/%d for %s".format(appId, execId, appDesc.name))
 
-          // Create the executor's working directory
+          // 根据applicationid、execid创建executor工作目录
           val executorDir = new File(workDir, appId + "/" + execId)
           if (!executorDir.mkdirs()) {
             throw new IOException("Failed to create directory " + executorDir)
@@ -507,8 +508,10 @@ private[deploy] class Worker(
           // Create local dirs for the executor. These are passed to the executor via the
           // SPARK_EXECUTOR_DIRS environment variable, and deleted by the Worker when the
           // application finishes.
+          //创建executor本地目录
           val appLocalDirs = appDirectories.getOrElse(appId, {
             val localRootDirs = Utils.getOrCreateLocalRootDirs(conf)
+            //序列化
             val dirs = localRootDirs.flatMap { dir =>
               try {
                 val appDir = Utils.createDirectory(dir, namePrefix = "executor")
@@ -527,6 +530,7 @@ private[deploy] class Worker(
             dirs
           })
           appDirectories(appId) = appLocalDirs
+          //ExecutorRunner启动线程
           val manager = new ExecutorRunner(
             appId,
             execId,
@@ -544,7 +548,9 @@ private[deploy] class Worker(
             conf,
             appLocalDirs, ExecutorState.RUNNING)
           executors(appId + "/" + execId) = manager
+          //启动线程
           manager.start()
+          //core memory更新
           coresUsed += cores_
           memoryUsed += memory_
           sendToMaster(ExecutorStateChanged(appId, execId, manager.state, None, None))
@@ -552,9 +558,11 @@ private[deploy] class Worker(
           case e: Exception =>
             logError(s"Failed to launch executor $appId/$execId for ${appDesc.name}.", e)
             if (executors.contains(appId + "/" + execId)) {
+              //启动executor失败：在缓存中进行移除
               executors(appId + "/" + execId).kill()
               executors -= appId + "/" + execId
             }
+            //发送executor状态改变的信息至master
             sendToMaster(ExecutorStateChanged(appId, execId, ExecutorState.FAILED,
               Some(e.toString), None))
         }
