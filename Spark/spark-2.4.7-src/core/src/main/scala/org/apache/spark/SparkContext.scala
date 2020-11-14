@@ -823,10 +823,13 @@ class SparkContext(config: SparkConf) extends Logging {
    * @param minPartitions suggested minimum number of partitions for the resulting RDD
    * @return RDD of lines of the text file
    */
+    //读取HDFS或者本地文件来创建RDD
   def textFile(
       path: String,
       minPartitions: Int = defaultMinPartitions): RDD[String] = withScope {
     assertNotStopped()
+      //使用Hadoop TextInputFormat：文件输入格式化 LongWritable：读取文本的行号 offset
+      //Text：每行的实际内容数据
     hadoopFile(path, classOf[TextInputFormat], classOf[LongWritable], classOf[Text],
       minPartitions).map(pair => pair._2.toString).setName(path)
   }
@@ -1032,8 +1035,10 @@ class SparkContext(config: SparkConf) extends Logging {
     FileSystem.getLocal(hadoopConfiguration)
 
     // A Hadoop configuration can be about 10 KB, which is pretty big, so broadcast it.
+    //广播变量 减少网络I/O传输
     val confBroadcast = broadcast(new SerializableConfiguration(hadoopConfiguration))
     val setInputPathsFunc = (jobConf: JobConf) => FileInputFormat.setInputPaths(jobConf, path)
+    //创建HadoopRDD 输入路径、输入方式函数、输入格式化类、key-value的类型、最小分区数
     new HadoopRDD(
       this,
       confBroadcast,
@@ -2058,6 +2063,7 @@ class SparkContext(config: SparkConf) extends Logging {
     if (conf.getBoolean("spark.logLineage", false)) {
       logInfo("RDD's recursive dependencies:\n" + rdd.toDebugString)
     }
+    //sparkContext初始化时创建的dagScheduler来触发job
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, resultHandler, localProperties.get)
     progressBar.foreach(_.finishAll())
     rdd.doCheckpoint()
