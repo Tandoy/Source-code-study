@@ -823,6 +823,8 @@ class SparkContext(config: SparkConf) extends Logging {
    * @param minPartitions suggested minimum number of partitions for the resulting RDD
    * @return RDD of lines of the text file
    */
+    //rdd分为：transformation action
+    //只有action才会触发job
     //读取HDFS或者本地文件来创建RDD
   def textFile(
       path: String,
