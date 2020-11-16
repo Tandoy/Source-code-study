@@ -742,6 +742,7 @@ private[spark] class DAGScheduler(
     assert(partitions.size > 0)
     val func2 = func.asInstanceOf[(TaskContext, Iterator[_]) => _]
     val waiter = new JobWaiter(this, jobId, partitions.size, resultHandler)
+    //事件监听loop
     eventProcessLoop.post(JobSubmitted(
       jobId, rdd, func2, partitions.toArray, callSite, waiter,
       SerializationUtils.clone(properties)))
@@ -1076,7 +1077,7 @@ private[spark] class DAGScheduler(
     //*****同时此处也是此job划分stage的具体方法*****
     //stage划分算法：
     //1.1 从finalStage倒推
-    //1.2 通过宽依赖，来进行stage的划分
+    //1.2 通过宽依赖，则进行stage的划分
     //1.3 使用递推，优先提交父stage
     submitStage(finalStage)
   }
@@ -1154,6 +1155,7 @@ private[spark] class DAGScheduler(
   }
 
   /** Called when stage's parents are available and we can now do its task. */
+  /***/
   private def submitMissingTasks(stage: Stage, jobId: Int) {
     logDebug("submitMissingTasks(" + stage + ")")
 
@@ -2150,6 +2152,7 @@ private[scheduler] class DAGSchedulerEventProcessLoop(dagScheduler: DAGScheduler
     }
   }
 
+  //事件监听处理方法 模式匹配handleJobSubmitted()
   private def doOnReceive(event: DAGSchedulerEvent): Unit = event match {
     case JobSubmitted(jobId, rdd, func, partitions, callSite, listener, properties) =>
       //处理Jobsubmit方法
