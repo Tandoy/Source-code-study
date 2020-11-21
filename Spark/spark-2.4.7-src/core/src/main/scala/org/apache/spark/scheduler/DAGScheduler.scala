@@ -155,7 +155,7 @@ private[spark] class DAGScheduler(
   private[scheduler] val waitingStages = new HashSet[Stage]
 
   // Stages we are running right now
-  private[scheduler] val runningStages = new HashSet[Stage]
+  private[scheduler] val runningStages = new HashSet[Stage] //用于存放正在运行的stage
 
   // Stages that must be resubmitted due to fetch failures
   private[scheduler] val failedStages = new HashSet[Stage]
@@ -1155,7 +1155,11 @@ private[spark] class DAGScheduler(
   }
 
   /** Called when stage's parents are available and we can now do its task. */
-  /***/
+  /**当stage划分完成后调用此方法计算task最佳位置*/
+  //Spark将由Executor执行的Task分为ShuffleMapTask和ResultTask两种。
+  //每个Stage生成Task的时候根据Stage中的isShuffleMap标记确定是否为ShuffleMapStage，
+  //如果标记为真，则这个Stage输出的结果会经过Shuffle阶段作为下一个Stage的输入，创建ShuffleMapTask；
+  //否则是ResultStage，这样会创建ResultTask，Stage的结果会输出到Spark空间；最后，Task是通过taskScheduler.submitTasks来提交的。
   private def submitMissingTasks(stage: Stage, jobId: Int) {
     logDebug("submitMissingTasks(" + stage + ")")
 
@@ -1164,6 +1168,7 @@ private[spark] class DAGScheduler(
 
     // Use the scheduling pool, job group, description, etc. from an ActiveJob associated
     // with this Stage
+    //首先得到RDD中需要计算的partition
     val properties = jobIdToActiveJob(jobId).properties
 
     runningStages += stage
@@ -1171,6 +1176,8 @@ private[spark] class DAGScheduler(
     // serializable. If tasks are not serializable, a SparkListenerStageCompleted event
     // will be posted, which should always come after a corresponding SparkListenerStageSubmitted
     // event.
+    //对于Shuffle类型的stage，需要判断stage中是否缓存了该结果；
+    //对于Result类型的Final Stage，则判断计算Job中该partition是否已经计算完成。
     stage match {
       case s: ShuffleMapStage =>
         outputCommitCoordinator.stageStart(stage = s.id, maxPartitionId = s.numPartitions - 1)
@@ -1180,6 +1187,7 @@ private[spark] class DAGScheduler(
     }
     val taskIdToLocations: Map[Int, Seq[TaskLocation]] = try {
       stage match {
+          //getPreferredLocs()计算task最佳位置算法
         case s: ShuffleMapStage =>
           partitionsToCompute.map { id => (id, getPreferredLocs(stage.rdd, id))}.toMap
         case s: ResultStage =>
@@ -2063,6 +2071,7 @@ private[spark] class DAGScheduler(
    * @param partition to lookup locality information for
    * @return list of machines that are preferred by the partition
    */
+    //计算task最佳位置
   private[spark]
   def getPreferredLocs(rdd: RDD[_], partition: Int): Seq[TaskLocation] = {
     getPreferredLocsInternal(rdd, partition, new HashSet)
@@ -2081,16 +2090,19 @@ private[spark] class DAGScheduler(
       visited: HashSet[(RDD[_], Int)]): Seq[TaskLocation] = {
     // If the partition has already been visited, no need to re-visit.
     // This avoids exponential path exploration.  SPARK-695
+    //判断当前分区是否已visit
     if (!visited.add((rdd, partition))) {
       // Nil has already been returned for previously visited partitions.
       return Nil
     }
     // If the partition is cached, return the cache locations
+    //查看本地缓存中是否已有最佳位置分配
     val cached = getCacheLocs(rdd)(partition)
     if (cached.nonEmpty) {
       return cached
     }
     // If the RDD has some placement preferences (as is the case for input RDDs), get those
+    //查看其它节点缓存中是否已有最佳位置分配
     val rddPrefs = rdd.preferredLocations(rdd.partitions(partition)).toList
     if (rddPrefs.nonEmpty) {
       return rddPrefs.map(TaskLocation(_))
@@ -2102,6 +2114,7 @@ private[spark] class DAGScheduler(
     rdd.dependencies.foreach {
       case n: NarrowDependency[_] =>
         for (inPart <- n.getParents(partition)) {
+          //窄依赖
           val locs = getPreferredLocsInternal(n.rdd, inPart, visited)
           if (locs != Nil) {
             return locs
