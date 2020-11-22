@@ -121,6 +121,8 @@ private[spark] class TaskSetManager(
   // state until all tasks have finished running; we keep TaskSetManagers that are in the zombie
   // state in order to continue to track and account for the running tasks.
   // TODO: We should kill any running task attempts when the task set manager becomes a zombie.
+  //sZombie：首先，定义TaskSetManager进入zombie状态——TaskSet中至少有一个task运行完成或者整个taskset被抛弃；
+  // zombie状态会一直保持到所有的task都执行完成；之所以让TaskSetManager处于zombie状态，是因为这时可以跟踪所有正在运行的task。
   private[scheduler] var isZombie = false
 
   // Whether the taskSet run tasks from a barrier stage. Spark must launch all the tasks at the
