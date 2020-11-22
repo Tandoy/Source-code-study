@@ -1294,6 +1294,9 @@ private[spark] class DAGScheduler(
     if (tasks.size > 0) {
       logInfo(s"Submitting ${tasks.size} missing tasks from $stage (${stage.rdd}) (first 15 " +
         s"tasks are for partitions ${tasks.take(15).map(_.partitionId)})")
+      //经过stage的划分、task最佳位置计算
+      //将所有的task加入tasks内存中用来构建taskSet，即可进行task的分配
+      //这里taskScheduler实际是调用taskSchedulerImpl的submitTasks()方法
       taskScheduler.submitTasks(new TaskSet(
         tasks.toArray, stage.id, stage.latestInfo.attemptNumber, jobId, properties))
     } else {
