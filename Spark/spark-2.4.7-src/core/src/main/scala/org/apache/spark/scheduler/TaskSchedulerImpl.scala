@@ -209,13 +209,17 @@ private[spark] class TaskSchedulerImpl(
   override def postStartHook() {
     waitBackendReady()
   }
-
+  //taskScheduler源码分析入口
   override def submitTasks(taskSet: TaskSet) {
+    //1.拿到所有task
     val tasks = taskSet.tasks
     logInfo("Adding task set " + taskSet.id + " with " + tasks.length + " tasks")
     this.synchronized {
+      //2.给每个taskSet创建一个TaskSetManager，它负责它自己的taskSet的执行状况的监视和管理
+      //maxTaskFailures默认最大task数
       val manager = createTaskSetManager(taskSet, maxTaskFailures)
       val stage = taskSet.stageId
+      //3.将task的stage与TaskSetManager进行绑定
       val stageTaskSets =
         taskSetsByStageIdAndAttempt.getOrElseUpdate(stage, new HashMap[Int, TaskSetManager])
 
@@ -229,8 +233,11 @@ private[spark] class TaskSchedulerImpl(
       // TSM3 for it. As a stage can't have more than one active task set managers, we must mark
       // TSM2 as zombie (it actually is).
       stageTaskSets.foreach { case (_, ts) =>
+        //sZombie：首先，定义TaskSetManager进入zombie状态——TaskSet中至少有一个task运行完成或者整个taskset被抛弃；
+        // zombie状态会一直保持到所有的task都执行完成；之所以让TaskSetManager处于zombie状态，是因为这时可以跟踪所有正在运行的task。
         ts.isZombie = true
       }
+      //4.加入缓存
       stageTaskSets(taskSet.stageAttemptId) = manager
       schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
 
@@ -249,6 +256,9 @@ private[spark] class TaskSchedulerImpl(
       }
       hasReceivedTask = true
     }
+    //这里backend实际就是sparkContext初始化时创建的SparkDeploySchedulerBackend
+    //而且这个backend是负责创建AppClient，向Master注册Application的
+    //这里会调用CoarseGrainedSchedulerBackend的reviveOffers方法，该方法给driverEndpoint发送ReviveOffer消息。
     backend.reviveOffers()
   }
 
@@ -332,18 +342,22 @@ private[spark] class TaskSchedulerImpl(
     var launchedTask = false
     // nodes and executors that are blacklisted for the entire application have already been
     // filtered out by this point
+    //遍历所有executor
     for (i <- 0 until shuffledOffers.size) {
       val execId = shuffledOffers(i).executorId
       val host = shuffledOffers(i).host
+      //若当前executor可用的core数满足一个task所需的core数 默认为1
       if (availableCpus(i) >= CPUS_PER_TASK) {
         try {
+          //获取taskSet哪些task可以在该executor上启动
           for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {
+            //将需要在该executor启动的task添加到tasks中
             tasks(i) += task
             val tid = task.taskId
-            taskIdToTaskSetManager.put(tid, taskSet)
-            taskIdToExecutorId(tid) = execId
+            taskIdToTaskSetManager.put(tid, taskSet)// task -> taskSetManager
+            taskIdToExecutorId(tid) = execId// task -> executorId
             executorIdToRunningTaskIds(execId).add(tid)
-            availableCpus(i) -= CPUS_PER_TASK
+            availableCpus(i) -= CPUS_PER_TASK //将可用cpu数减去已经消耗的cpu
             assert(availableCpus(i) >= 0)
             // Only update hosts for a barrier task.
             if (taskSet.isBarrier) {
@@ -369,14 +383,25 @@ private[spark] class TaskSchedulerImpl(
    * sets for tasks in order of priority. We fill each node with tasks in a round-robin manner so
    * that tasks are balanced across the cluster.
    */
+  /**
+   * 第一步：执行任务分配算法，将每个task分配到Executor
+   * 第二步：分配到Executor上之后，调用launchTasks()方法，将分配的task发送launchTasks消息到对应executor上，由对应executor启动
+   * @param offers
+   * @return
+   */
+    //WorkerOffer：传入的application所用可用的executor，并且将其封装成WorkerOffer，每个代表每个executor可用的cpu资源
   def resourceOffers(offers: IndexedSeq[WorkerOffer]): Seq[Seq[TaskDescription]] = synchronized {
     // Mark each slave as alive and remember its hostname
     // Also track if new executor is added
+      //1.标记是否有新的executor加入
     var newExecAvail = false
+      //2.更新executor，host，rack信息
     for (o <- offers) {
+      //判断当前要用的资源所在host是否在缓存中
       if (!hostToExecutors.contains(o.host)) {
         hostToExecutors(o.host) = new HashSet[String]()
       }
+      //加入task--executor对应关系缓存
       if (!executorIdToRunningTaskIds.contains(o.executorId)) {
         hostToExecutors(o.host) += o.executorId
         executorAdded(o.executorId, o.host)
@@ -400,17 +425,20 @@ private[spark] class TaskSchedulerImpl(
           !blacklistTracker.isExecutorBlacklisted(offer.executorId)
       }
     }.getOrElse(offers)
-
+    //3.首先将可用的executor进行shuffle，达到负载均衡
     val shuffledOffers = shuffleOffers(filteredOffers)
     // Build a list of tasks to assign to each worker.
+      //4.建一个二维数组，保存每个Executor上将要分配的那些task
     val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores / CPUS_PER_TASK))
     val availableCpus = shuffledOffers.map(o => o.cores).toArray
+      //5.从调度池中取出已排序的taskSet
+      //有FIFO及Fair两种排序规则，默认为FIFO
     val sortedTaskSets = rootPool.getSortedTaskSetQueue
     for (taskSet <- sortedTaskSets) {
       logDebug("parentName: %s, name: %s, runningTasks: %s".format(
         taskSet.parent.name, taskSet.name, taskSet.runningTasks))
-      if (newExecAvail) {
-        taskSet.executorAdded()
+      if (newExecAvail) {// 如果该executor是新分配来的
+        taskSet.executorAdded()// 重新计算TaskSetManager的就近原则
       }
     }
 
@@ -428,12 +456,19 @@ private[spark] class TaskSchedulerImpl(
           s"because the barrier taskSet requires ${taskSet.numTasks} slots, while the total " +
           s"number of available slots is $availableSlots.")
       } else {
+
+        //*****任务分配算法的核心*******
+        // 利用双重循环对每一个taskSet依照调度的顺序，依次按照本地性级别顺序尝试启动task
+        // 根据taskSet及locality遍历所有可用的executor，找出可以在各个executor上启动的task，
+        // 加到tasks:Seq[Seq[TaskDescription]]中
+        // 数据本地性级别顺序：PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY
         var launchedAnyTask = false
         // Record all the executor IDs assigned barrier tasks on.
         val addressesWithDescs = ArrayBuffer[(String, TaskDescription)]()
         for (currentMaxLocality <- taskSet.myLocalityLevels) {
           var launchedTaskAtCurrentMaxLocality = false
           do {
+            //将计算资源按照就近原则分配给taskSet，用于执行其中的task
             launchedTaskAtCurrentMaxLocality = resourceOfferSingleTaskSet(taskSet,
               currentMaxLocality, shuffledOffers, availableCpus, tasks, addressesWithDescs)
             launchedAnyTask |= launchedTaskAtCurrentMaxLocality
