@@ -268,8 +268,13 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
         if (executorIsAlive(executorId)) {
           val executorData = executorDataMap(executorId)
           val workOffers = IndexedSeq(
+            //该方法先过滤出活跃的executor并封装成WorkerOffer，WorkerOffer包含executorId、host、可用的cores三个信息。
+            // 这里的executorDataMap是HashMap[String, ExecutorData]类型，key为executorId，value为对应executor的信息，包括host、RPC信息、totalCores、freeCores。
+            //在客户端向Master注册Application的时候，Master已经为Application分配并启动好Executor，然后注册给CoarseGrainedSchedulerBackend，
+            // 注册信息就是存储在executorDataMap数据结构中。
             new WorkerOffer(executorId, executorData.executorHost, executorData.freeCores,
               Some(executorData.executorAddress.hostPort)))
+          //调用TaskSchedulerImpl的resourceOffers方法
           scheduler.resourceOffers(workOffers)
         } else {
           Seq.empty
@@ -286,9 +291,10 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     }
 
     // Launch tasks returned by a set of resource offers
+    //根据分配好的，在对应的executor上启动task
     private def launchTasks(tasks: Seq[Seq[TaskDescription]]) {
       for (task <- tasks.flatten) {
-        val serializedTask = TaskDescription.encode(task)
+        val serializedTask = TaskDescription.encode(task) //将task相关信息进行序列化
         if (serializedTask.limit() >= maxRpcMessageSize) {
           Option(scheduler.taskIdToTaskSetManager.get(task.taskId)).foreach { taskSetMgr =>
             try {
@@ -303,12 +309,12 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
           }
         }
         else {
-          val executorData = executorDataMap(task.executorId)
-          executorData.freeCores -= scheduler.CPUS_PER_TASK
+          val executorData = executorDataMap(task.executorId) //找到对应的executor
+          executorData.freeCores -= scheduler.CPUS_PER_TASK //更新相关资源
 
           logDebug(s"Launching task ${task.taskId} on executor id: ${task.executorId} hostname: " +
             s"${executorData.executorHost}.")
-
+          //向executor发送消息，启动task
           executorData.executorEndpoint.send(LaunchTask(new SerializableBuffer(serializedTask)))
         }
       }
