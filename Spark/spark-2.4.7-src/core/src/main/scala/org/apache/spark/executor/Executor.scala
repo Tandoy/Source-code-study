@@ -199,10 +199,12 @@ private[spark] class Executor(
   startDriverHeartbeater()
 
   private[executor] def numRunningTasks: Int = runningTasks.size()
-
+  //创建TaskRunner线程
   def launchTask(context: ExecutorBackend, taskDescription: TaskDescription): Unit = {
     val tr = new TaskRunner(context, taskDescription)
+    //runningTasks实际为线程安全的hashmap缓存
     runningTasks.put(taskDescription.taskId, tr)
+    //threadPool线程池进行队列执行
     threadPool.execute(tr)
   }
 
