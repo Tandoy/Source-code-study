@@ -56,6 +56,7 @@ private[spark] class CoarseGrainedExecutorBackend(
   private[this] val ser: SerializerInstance = env.closureSerializer.newInstance()
 
   override def onStart() {
+    //CoarseGrainedExecutorBackend进程启动之后会像driver进行executor的注册
     logInfo("Connecting to driver: " + driverUrl)
     rpcEnv.asyncSetupEndpointRefByURI(driverUrl).flatMap { ref =>
       // This is a very fast action so we can use "ThreadUtils.sameThread"
@@ -77,9 +78,11 @@ private[spark] class CoarseGrainedExecutorBackend(
   }
 
   override def receive: PartialFunction[Any, Unit] = {
+        //executor注册成功
     case RegisteredExecutor =>
       logInfo("Successfully registered with driver")
       try {
+        //注册之后创建Executor调用其launchTask()
         executor = new Executor(executorId, hostname, env, userClassPath, isLocal = false)
       } catch {
         case NonFatal(e) =>
@@ -88,7 +91,7 @@ private[spark] class CoarseGrainedExecutorBackend(
 
     case RegisterExecutorFailed(message) =>
       exitExecutor(1, "Slave registration failed: " + message)
-
+    //启动executor
     case LaunchTask(data) =>
       if (executor == null) {
         exitExecutor(1, "Received LaunchTask command but executor was null")
