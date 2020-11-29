@@ -272,6 +272,13 @@ private[spark] class Executor(
     ManagementFactory.getGarbageCollectorMXBeans.asScala.map(_.getCollectionTime).sum
   }
 
+  /**
+   * Task原理剖析与源码分析：从这里开始源码研读Task的原理
+   * 实际上继承java的线程
+   * run()为重要分析方法体
+   * @param execBackend
+   * @param taskDescription
+   */
   class TaskRunner(
       execBackend: ExecutorBackend,
       private val taskDescription: TaskDescription)
