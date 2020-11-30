@@ -68,7 +68,7 @@ private[spark] class Executor(
   private val currentFiles: HashMap[String, Long] = new HashMap[String, Long]()
   private val currentJars: HashMap[String, Long] = new HashMap[String, Long]()
 
-  private val EMPTY_BYTE_BUFFER = ByteBuffer.wrap(new Array[Byte](0))
+  private val EMPTY_BYTE_BUFFER = ByteBuffer.wrap(new Array[Byte](0)) //HeapByteBuffer
 
   private val conf = env.conf
 
@@ -358,33 +358,37 @@ private[spark] class Executor(
       setTaskFinishedAndClearInterruptStatus()
       (accums, accUpdates)
     }
-
+    //Task源码分析主方法
     override def run(): Unit = {
-      threadId = Thread.currentThread.getId
-      Thread.currentThread.setName(threadName)
-      val threadMXBean = ManagementFactory.getThreadMXBean
-      val taskMemoryManager = new TaskMemoryManager(env.memoryManager, taskId)
+      threadId = Thread.currentThread.getId //线程ID
+      Thread.currentThread.setName(threadName) //线程Name
+      val threadMXBean = ManagementFactory.getThreadMXBean //线程最大内存
+      val taskMemoryManager = new TaskMemoryManager(env.memoryManager, taskId) //根据taskId创建task内存管理
       val deserializeStartTime = System.currentTimeMillis()
       val deserializeStartCpuTime = if (threadMXBean.isCurrentThreadCpuTimeSupported) {
         threadMXBean.getCurrentThreadCpuTime
       } else 0L
       Thread.currentThread.setContextClassLoader(replClassLoader)
-      val ser = env.closureSerializer.newInstance()
+      val ser = env.closureSerializer.newInstance() //序列化反射
       logInfo(s"Running $taskName (TID $taskId)")
-      execBackend.statusUpdate(taskId, TaskState.RUNNING, EMPTY_BYTE_BUFFER)
-      var taskStartTime: Long = 0
-      var taskStartCpu: Long = 0
-      startGCTime = computeTotalGcTime()
+      execBackend.statusUpdate(taskId, TaskState.RUNNING, EMPTY_BYTE_BUFFER) //task状态更新
+      var taskStartTime: Long = 0 //初始时间
+      var taskStartCpu: Long = 0 //初始CPU
+      startGCTime = computeTotalGcTime() //初始GC时间
 
       try {
         // Must be set before updateDependencies() is called, in case fetching dependencies
         // requires access to properties contained within (e.g. for access control).
+        //此处taskDeserializationProps即为ThreadLocal
         Executor.taskDeserializationProps.set(taskDescription.properties)
-
+        //更新依赖：获取需要的文件、jar包等
         updateDependencies(taskDescription.addedFiles, taskDescription.addedJars)
+        //反序列化task（发过来的task是序列化的）
         task = ser.deserialize[Task[Any]](
           taskDescription.serializedTask, Thread.currentThread.getContextClassLoader)
+        //设置task属性
         task.localProperties = taskDescription.properties
+        //设置task内存管理
         task.setTaskMemoryManager(taskMemoryManager)
 
         // If this task has been killed before we deserialized it, let's quit now. Otherwise,
@@ -402,7 +406,7 @@ private[spark] class Executor(
         // in case FetchFailures have occurred. In local mode `env.mapOutputTracker` will be
         // MapOutputTrackerMaster and its cache invalidation is not based on epoch numbers so
         // we don't need to make any special calls here.
-        if (!isLocal) {
+        if (!isLocal) { //isLocal：默认false
           logDebug("Task " + taskId + "'s epoch is " + task.epoch)
           env.mapOutputTracker.asInstanceOf[MapOutputTrackerWorker].updateEpoch(task.epoch)
         }
@@ -804,9 +808,11 @@ private[spark] class Executor(
    * SparkContext. Also adds any new JARs we fetched to the class loader.
    */
   private def updateDependencies(newFiles: Map[String, Long], newJars: Map[String, Long]) {
+    //1.获取hadoop环境
     lazy val hadoopConf = SparkHadoopUtil.get.newConfiguration(conf)
     synchronized {
       // Fetch missing dependencies
+      //2.拉取所需files
       for ((name, timestamp) <- newFiles if currentFiles.getOrElse(name, -1L) < timestamp) {
         logInfo("Fetching " + name + " with timestamp " + timestamp)
         // Fetch file with useCache mode, close cache for local mode.
@@ -814,6 +820,7 @@ private[spark] class Executor(
           env.securityManager, hadoopConf, timestamp, useCache = !isLocal)
         currentFiles(name) = timestamp
       }
+      //3.拉取所需jar包
       for ((name, timestamp) <- newJars) {
         val localName = new URI(name).getPath.split("/").last
         val currentTimeStamp = currentJars.get(name)
@@ -829,6 +836,7 @@ private[spark] class Executor(
           val url = new File(SparkFiles.getRootDirectory(), localName).toURI.toURL
           if (!urlClassLoader.getURLs().contains(url)) {
             logInfo("Adding " + url + " to class loader")
+            //4.将url加入classLoader
             urlClassLoader.addURL(url)
           }
         }
