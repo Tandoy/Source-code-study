@@ -399,6 +399,7 @@ private[spark] class Executor(
           // causes a NonLocalReturnControl exception to be thrown. The NonLocalReturnControl
           // exception will be caught by the catch block, leading to an incorrect ExceptionFailure
           // for the task.
+          //判断task是否被kill
           throw new TaskKilledException(killReason.get)
         }
 
