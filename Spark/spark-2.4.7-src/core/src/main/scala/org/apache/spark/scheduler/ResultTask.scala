@@ -71,7 +71,7 @@ private[spark] class ResultTask[T, U](
   @transient private[this] val preferredLocs: Seq[TaskLocation] = {
     if (locs == null) Nil else locs.toSet.toSeq
   }
-
+  //不同task实现类对runtask进行了不同的处理逻辑实现
   override def runTask(context: TaskContext): U = {
     // Deserialize the RDD and the func using the broadcast variables.
     val threadMXBean = ManagementFactory.getThreadMXBean
