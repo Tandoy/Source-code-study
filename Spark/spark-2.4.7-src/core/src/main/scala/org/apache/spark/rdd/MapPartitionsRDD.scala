@@ -47,8 +47,9 @@ private[spark] class MapPartitionsRDD[U: ClassTag, T: ClassTag](
   override val partitioner = if (preservesPartitioning) firstParent[T].partitioner else None
 
   override def getPartitions: Array[Partition] = firstParent[T].partitions
-
+  //进行rdd.compute()实际实现
   override def compute(split: Partition, context: TaskContext): Iterator[U] =
+  //此处f为：spark对用户自定义的一系列计算函数和算子的封装
     f(context, split.index, firstParent[T].iterator(split, context))
 
   override def clearDependencies() {
