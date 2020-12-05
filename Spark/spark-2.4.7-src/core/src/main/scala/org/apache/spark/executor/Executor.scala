@@ -413,12 +413,17 @@ private[spark] class Executor(
         }
 
         // Run the actual task and measure its runtime.
+        // 获取run task开始时间
         taskStartTime = System.currentTimeMillis()
+        // 获取run task开始cpu数
         taskStartCpu = if (threadMXBean.isCurrentThreadCpuTimeSupported) {
           threadMXBean.getCurrentThreadCpuTime
         } else 0L
         var threwException = true
+        //此处value是task 计算rdd partition数据返回的计算值
         val value = Utils.tryWithSafeFinally {
+          //此处为task执行重要方法
+          //res：task执行后的数据rdd
           val res = task.run(
             taskAttemptId = taskId,
             attemptNumber = taskDescription.attemptNumber,
@@ -428,7 +433,7 @@ private[spark] class Executor(
         } {
           val releasedLocks = env.blockManager.releaseAllLocksForTask(taskId)
           val freedMemory = taskMemoryManager.cleanUpAllAllocatedMemory()
-
+          //进行相关资源的更新
           if (freedMemory > 0 && !threwException) {
             val errMsg = s"Managed memory leak detected; size = $freedMemory bytes, TID = $taskId"
             if (conf.getBoolean("spark.unsafe.exceptionOnMemoryLeak", false)) {
@@ -532,6 +537,7 @@ private[spark] class Executor(
         val resultSize = serializedDirectResult.limit()
 
         // directSend = sending directly back to the driver
+        //对res结果相关进行序列化serializedResult并发向driver
         val serializedResult: ByteBuffer = {
           if (maxResultSize > 0 && resultSize > maxResultSize) {
             logWarning(s"Finished $taskName (TID $taskId). Result is larger than maxResultSize " +
@@ -554,6 +560,7 @@ private[spark] class Executor(
         }
 
         setTaskFinishedAndClearInterruptStatus()
+        //
         execBackend.statusUpdate(taskId, TaskState.FINISHED, serializedResult)
 
       } catch {
@@ -585,6 +592,7 @@ private[spark] class Executor(
               s"other exception: $t")
           }
           setTaskFinishedAndClearInterruptStatus()
+          //实际调用CoarseGrainedExecutorBackend.statusUpdate进行task相关状态、计算后的数据发送至driver
           execBackend.statusUpdate(taskId, TaskState.FAILED, ser.serialize(reason))
 
         case CausedBy(cDE: CommitDeniedException) =>
