@@ -76,7 +76,7 @@ private[spark] class ShuffleMapTask(
   @transient private val preferredLocs: Seq[TaskLocation] = {
     if (locs == null) Nil else locs.toSet.toSeq
   }
-
+  //继承至Task 返回MapStatus（计算后数据rdd）
   override def runTask(context: TaskContext): MapStatus = {
     // Deserialize the RDD using the broadcast variable.
     val threadMXBean = ManagementFactory.getThreadMXBean
@@ -85,6 +85,9 @@ private[spark] class ShuffleMapTask(
       threadMXBean.getCurrentThreadCpuTime
     } else 0L
     val ser = SparkEnv.get.closureSerializer.newInstance()
+    /**
+     * 使用广播变量进行rdd的序列化
+     */
     val (rdd, dep) = ser.deserialize[(RDD[_], ShuffleDependency[_, _, _])](
       ByteBuffer.wrap(taskBinary.value), Thread.currentThread.getContextClassLoader)
     _executorDeserializeTime = System.currentTimeMillis() - deserializeStartTime
@@ -95,7 +98,13 @@ private[spark] class ShuffleMapTask(
     var writer: ShuffleWriter[Any, Any] = null
     try {
       val manager = SparkEnv.get.shuffleManager
+      //shuffleManager --> shuffleWriter
       writer = manager.getWriter[Any, Any](dep.shuffleHandle, partitionId, context)
+      //这里即为task执行原理的重点：rdd.iterator
+      //rdd进行迭代式计算partition自定义的算子和函数
+      //实际上执行rdd的compute（）
+      //底层调用相关rdd如MapPartitionRdd的compute方法进行计算
+      //spark会对用户自定义的进行相关封装f
       writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])
       writer.stop(success = true).get
     } catch {
