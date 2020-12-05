@@ -114,6 +114,7 @@ abstract class RDD[T: ClassTag](
    * Implemented by subclasses to compute a given partition.
    */
   @DeveloperApi
+  //抽象方法，实际由其实现类进行实现如：MapPartitionsRDD
   def compute(split: Partition, context: TaskContext): Iterator[T]
 
   /**
@@ -304,9 +305,11 @@ abstract class RDD[T: ClassTag](
    * subclasses of RDD.
    */
   final def iterator(split: Partition, context: TaskContext): Iterator[T] = {
+    //数据存储级别的判断
     if (storageLevel != StorageLevel.NONE) {
       getOrCompute(split, context)
     } else {
+      //从checkpoint中获取计算结果
       computeOrReadCheckpoint(split, context)
     }
   }
@@ -340,9 +343,11 @@ abstract class RDD[T: ClassTag](
    */
   private[spark] def computeOrReadCheckpoint(split: Partition, context: TaskContext): Iterator[T] =
   {
+    //若当前为第一个partition数据则继续迭代
     if (isCheckpointedAndMaterialized) {
       firstParent[T].iterator(split, context)
     } else {
+      //进行计算
       compute(split, context)
     }
   }
@@ -351,6 +356,7 @@ abstract class RDD[T: ClassTag](
    * Gets or computes an RDD partition. Used by RDD.iterator() when an RDD is cached.
    */
   private[spark] def getOrCompute(partition: Partition, context: TaskContext): Iterator[T] = {
+    //计算partitionblockID
     val blockId = RDDBlockId(id, partition.index)
     var readCachedBlock = true
     // This method is called on executors, so we need call SparkEnv.get instead of sc.env.
