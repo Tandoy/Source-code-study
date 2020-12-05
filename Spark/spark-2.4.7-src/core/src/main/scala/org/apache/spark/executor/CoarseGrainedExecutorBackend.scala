@@ -142,7 +142,7 @@ private[spark] class CoarseGrainedExecutorBackend(
       logWarning(s"An unknown ($remoteAddress) driver disconnected.")
     }
   }
-
+  //task partition计算完成后向driver发送消息
   override def statusUpdate(taskId: Long, state: TaskState, data: ByteBuffer) {
     val msg = StatusUpdate(executorId, taskId, state, data)
     driver match {
