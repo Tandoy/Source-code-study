@@ -105,6 +105,17 @@ private[spark] class ShuffleMapTask(
       //实际上执行rdd的compute（）
       //底层调用相关rdd如MapPartitionRdd的compute方法进行计算
       //spark会对用户自定义的进行相关封装f
+      //同时write方法也是Shuffle的主入口
+      /**
+       *假设有一个节点上面运行了4个 ShuffleMapTask，然后这个节点上只有2个 cpu core。假如有另外一台节点，上面也运行了4个ResultTask，现在呢，正等着要去
+       *ShuffleMapTask 的输出数据来完成比如 reduceByKey 等操作。
+       *每个 ShuffleMapTask 都会为 ReduceTask 创建一份 bucket 缓存，以及对应的 ShuffleBlockFile 磁盘文件。
+       *ShuffleMapTask 的输出会作为 MapStatus，发送到 DAGScheduler 的 MapOutputTrackerMaster 中。MapStatus 包含了每个 ResultTask 要拉取的数据的大小。
+       *每个 ResultTask 会用 BlockStoreShuffleFetcher 去 MapOutputTrackerMaster 获取自己要拉取数据的信息，然后底层通过 BlockManager 将数据拉取过来。
+       *每个 ResultTask 拉取过来的数据，其实就会组成一个内部的RDD，叫ShuffleRDD；优先放入内存，其次内存不够，那么写入磁盘。
+       *然后每个ResultTask针对数据进行聚合，最后生成MapPartitionsRDD，也就是我们执行reduceByKey等操作希望获得的那个RDD。map端的数据，可以理解为Shuffle的第一个
+       *RDD，MapPartitionsRDD。所以假设如果有100个map task ，100个 reduce task，本地磁盘要产生10000个文件，磁盘IO过多，影响性能。
+       */
       writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])
       writer.stop(success = true).get
     } catch {
