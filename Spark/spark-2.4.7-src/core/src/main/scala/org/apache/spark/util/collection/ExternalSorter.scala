@@ -178,24 +178,33 @@ private[spark] class ExternalSorter[K, V, C](
 
   def insertAll(records: Iterator[Product2[K, V]]): Unit = {
     // TODO: stop combining if we find that the reduction factor isn't high
+    //是否定义了聚合函数
     val shouldCombine = aggregator.isDefined
-
+    //如果定义了聚合函数为true
     if (shouldCombine) {
       // Combine values in-memory first using our AppendOnlyMap
+      //mergeValue 是对Value进行merge的函数
       val mergeValue = aggregator.get.mergeValue
+      //创建Combiner
       val createCombiner = aggregator.get.createCombiner
       var kv: Product2[K, V] = null
+      //自定义偏函数
       val update = (hadValue: Boolean, oldValue: C) => {
+        //是否还有value，若有进行mergevalue，若已经没有value则进行combiner
         if (hadValue) mergeValue(oldValue, kv._2) else createCombiner(kv._2)
       }
       while (records.hasNext) {
         addElementsRead()
         kv = records.next()
+        //((分区号,key),update)
+        //在内存中对value进行聚合
         map.changeValue((getPartition(kv._1), kv._1), update)
+        // 超过内存阈值时写入磁盘
         maybeSpillCollection(usingMap = true)
       }
     } else {
       // Stick values into our buffer
+      //没有设置聚合、排序函数，直接把value插入缓冲区
       while (records.hasNext) {
         addElementsRead()
         val kv = records.next()
