@@ -49,7 +49,9 @@ private[spark] class SortShuffleWriter[K, V, C](
 
   /** Write a bunch of records to this task's output */
   override def write(records: Iterator[Product2[K, V]]): Unit = {
-    sorter = if (dep.mapSideCombine) {
+    sorter = if (dep.mapSideCombine) { //mapSideCombine 是否map端本地进行聚合 默认false
+      //若设置为map端聚合，就会执行本地聚合，比如本地有(hello，1)、(hello，1)，那么此时就会聚合成(hello，2)
+      //dep.keyOrdering 排序函数定义
       new ExternalSorter[K, V, C](
         context, dep.aggregator, Some(dep.partitioner), dep.keyOrdering, dep.serializer)
     } else {
@@ -59,6 +61,15 @@ private[spark] class SortShuffleWriter[K, V, C](
       new ExternalSorter[K, V, V](
         context, aggregator = None, Some(dep.partitioner), ordering = None, dep.serializer)
     }
+    //根据是否map端聚合创建不同的ExternalSorter
+    // 根据排序方式，对数据进行排序并写入内存缓冲区。
+    // 若排序中计算结果超出的阈值，
+    // 则将其溢写到磁盘数据文件
+    /**
+     *1.没有聚合和排序，数据先按照partition写入不同的文件中，最后按partition顺序合并写入同一文件 。适合partition数量较少时。将多个bucket合并到同一文件，减少map输出文件数，节省磁盘I/O，提高性能。
+     *2.没有聚合但有排序，在缓存对数据先根据分区（或者还有key）进行排序，最后按partition顺序合并写入同一文件。适合当partition数量较多时。将多个bucket合并到同一文件，减少map输出文件数，节省磁盘I/O，提高性能。缓存使用超过阈值，将数据写入磁盘。
+     *3.有聚合有排序，现在缓存中根据key值聚合，再在缓存对数据先根据分区（或者还有key）进行排序，最后按partition顺序合并写入同一文件。将多个bucket合并到同一文件，减少map输出文件数，节省磁盘I/O，提高性能。缓存使用超过阈值，将数据写入磁盘。逐条的读取数据，并进行聚合，减少了内存的占用。
+     */
     sorter.insertAll(records)
 
     // Don't bother including the time to open the merged output file in the shuffle write time,
