@@ -695,18 +695,29 @@ private[spark] class ExternalSorter[K, V, C](
 
     // Track location of each range in the output file
     val lengths = new Array[Long](numPartitions)
+    // 创建DiskWriter
     val writer = blockManager.getDiskWriter(blockId, outputFile, serInstance, fileBufferSize,
       context.taskMetrics().shuffleWriteMetrics)
 
     if (spills.isEmpty) {
       // Case where we only have in-memory data
+      // 没有定义聚合函数操作直接从内存缓存中收集数据
       val collection = if (aggregator.isDefined) map else buffer
+      // 根据key进行分组写入不同partition
       val it = collection.destructiveSortedWritablePartitionedIterator(comparator)
       while (it.hasNext) {
         val partitionId = it.nextPartition()
         while (it.hasNext && it.nextPartition() == partitionId) {
           it.writeNext(writer)
         }
+        // 优化后的shuffle机制：
+        // 引入了 consolidation 机制，也就是说提出了ShuffleGroup的概念。一个 ShuffleMapTask 将数据写入 ResultTask 数量的本地文本，这个不会变。但是，
+        // 当下一个 ShuffleMapTask 运行的时候，可以直接将数据写入之前的 ShuffleMapTask 的本地文件。相当于是，对多个 ShuffleMapTask 输出做了合并，从而大大减少了本地
+        // 磁盘的数量。
+        // 假设一台机器上有两个 cpu ，也就是说，4个 ShuffleMapTask，有2个ShuffleMapTask是可以并行执行的。并行执行的 ShuffleMapTask ，写入的文件，一定是不同的。当一
+        // 批并行执行的 ShuffleMapTask 运行完之后，那么新的一批 ShuffleMapTask 启动起来并执行的时候，优化机制就开始发挥作用了（consolidation机制）。这个东西，就可以
+        // 称作为一组 ShuffleGroup。那么每个文件中，都存储了多个 ShuffleMapTask 的数据，每个 ShuffleMapTask 的数据 ，叫做一个 segment，此外，会通过一些索引，来标记每
+        // 个 ShuffleMapTask 的输出在 ShuffleBlockFlie 中的索引，以及偏移量等，来进行不同 ShuffleMapTask 的数据的区分。
         val segment = writer.commitAndGet()
         lengths(partitionId) = segment.length
       }
