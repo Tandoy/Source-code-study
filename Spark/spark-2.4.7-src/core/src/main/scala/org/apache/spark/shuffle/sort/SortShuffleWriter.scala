@@ -75,12 +75,17 @@ private[spark] class SortShuffleWriter[K, V, C](
     // Don't bother including the time to open the merged output file in the shuffle write time,
     // because it just opens a single file, so is typically too fast to measure accurately
     // (see SPARK-3570).
+    // 通过shuffleId、mapId获取shuffleMapTask输出的文件路径
     val output = shuffleBlockResolver.getDataFile(dep.shuffleId, mapId)
+    // 创建删除临时文件
     val tmp = Utils.tempFileWith(output)
     try {
+      // 根据shuffleId、mapId、reduceId获取blockId
       val blockId = ShuffleBlockId(dep.shuffleId, mapId, IndexShuffleBlockResolver.NOOP_REDUCE_ID)
+      // 实际的写数据方法，返回所有分区id
       val partitionLengths = sorter.writePartitionedFile(blockId, tmp)
       shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, tmp)
+      // mapStatus：记录每个shuffleMapTask输出的数据信息，resultTask后续会根据mapStatus到指定机器上拉取对应的数据会本地
       mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths)
     } finally {
       if (tmp.exists() && !tmp.delete()) {
