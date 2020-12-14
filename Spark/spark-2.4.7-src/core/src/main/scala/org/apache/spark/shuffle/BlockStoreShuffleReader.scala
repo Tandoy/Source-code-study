@@ -41,14 +41,23 @@ private[spark] class BlockStoreShuffleReader[K, C](
   private val dep = handle.dependency
 
   /** Read the combined key-values for this reduce task */
+    // 这里是shuffle过程中resultTask拉取各自的数据方法
   override def read(): Iterator[Product2[K, C]] = {
+      // 创建ShuffleBlockFetcherIterator
     val wrappedStreams = new ShuffleBlockFetcherIterator(
-      context,
+      context, //全局上下文
       blockManager.shuffleClient,
       blockManager,
+      // resultTask会到mapOutputTracker中获取mapStatus
+      // shuffle都发生在宽窄依赖发生变化 ，此时shuffleId为上一个stage
+      // startPartition, endPartition：具体reduceId
+      // 此时这三个参数就可以得到以下结论
+      // handle.shuffleId：通过限制shuffleId来得到上一个stage中所有shuffleMapTask输出的mapstatus
+      // startPartition、endPartition：通过限制分区开始结束来得到这个resultTask所需要的每个shuffleMapTask的输出文件信息
       mapOutputTracker.getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition),
       serializerManager.wrapStream,
       // Note: we use getSizeAsMb when no suffix is provided for backwards compatibility
+      // 相关参数的设置
       SparkEnv.get.conf.getSizeAsMb("spark.reducer.maxSizeInFlight", "48m") * 1024 * 1024,
       SparkEnv.get.conf.getInt("spark.reducer.maxReqsInFlight", Int.MaxValue),
       SparkEnv.get.conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS),
