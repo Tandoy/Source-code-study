@@ -677,22 +677,24 @@ private[spark] class MapOutputTrackerMaster(
 private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTracker(conf) {
 
   val mapStatuses: Map[Int, Array[MapStatus]] =
-    new ConcurrentHashMap[Int, Array[MapStatus]]().asScala
+    new ConcurrentHashMap[Int, Array[MapStatus]]().asScala //用于存储shuffleId与MapStatus的对应关系，且是线程安全的
 
   /** Remembers which map output locations are currently being fetched on an executor. */
-  private val fetching = new HashSet[Int]
+  private val fetching = new HashSet[Int] //用于存储在不在mapStatuses缓存中，从而进行远程拉取的MapStatus
 
   // Get blocks sizes by executor Id. Note that zero-sized blocks are excluded in the result.
   override def getMapSizesByExecutorId(shuffleId: Int, startPartition: Int, endPartition: Int)
       : Iterator[(BlockManagerId, Seq[(BlockId, Long)])] = {
     logDebug(s"Fetching outputs for shuffle $shuffleId, partitions $startPartition-$endPartition")
+    // 获取此shuffle的数据文件信息
     val statuses = getStatuses(shuffleId)
     try {
-      // 更新mapStatus
+      // 向MapOutputTracker更新mapStatus
       MapOutputTracker.convertMapStatuses(shuffleId, startPartition, endPartition, statuses)
     } catch {
       case e: MetadataFetchFailedException =>
         // We experienced a fetch failure so our mapStatuses cache is outdated; clear it:
+        // 若更新mapStatuses失败进行清空操作
         mapStatuses.clear()
         throw e
     }
@@ -705,15 +707,18 @@ private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTr
    * (It would be nice to remove this restriction in the future.)
    */
   private def getStatuses(shuffleId: Int): Array[MapStatus] = {
+    // 1.先尝试在缓存中获取此shuffle的mapStatuses
     val statuses = mapStatuses.get(shuffleId).orNull
-    if (statuses == null) {
+    if (statuses == null) { //缓存中没有
       logInfo("Don't have map outputs for shuffle " + shuffleId + ", fetching them")
       val startTime = System.currentTimeMillis
+      // 2.
       var fetchedStatuses: Array[MapStatus] = null
       fetching.synchronized {
         // Someone else is fetching it; wait for them to be done
         while (fetching.contains(shuffleId)) {
           try {
+            // 3.等待阻塞
             fetching.wait()
           } catch {
             case e: InterruptedException =>
@@ -722,25 +727,33 @@ private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTr
 
         // Either while we waited the fetch happened successfully, or
         // someone fetched it in between the get and the fetching.synchronized.
+        // 4.在缓存中不在的，尝试拉取后
         fetchedStatuses = mapStatuses.get(shuffleId).orNull
+        // 5.尝试拉取后还是没有获取到
         if (fetchedStatuses == null) {
           // We have to do the fetch, get others to wait for us.
+          // 6.将此shuffleId加入待拉取的缓存中并尝试二次拉取，直到获取到此shuffleId的mapStatuses
           fetching += shuffleId
         }
       }
-
+      // 7.
       if (fetchedStatuses == null) {
         // We won the race to fetch the statuses; do so
         logInfo("Doing the fetch; tracker endpoint = " + trackerEndpoint)
         // This try-finally prevents hangs due to timeouts:
         try {
+          // 7.尝试通过创建GetMapOutputMessage网络进行拉取
           val fetchedBytes = askTracker[Array[Byte]](GetMapOutputStatuses(shuffleId))
+          // 8.拉取到后进行序列化
           fetchedStatuses = MapOutputTracker.deserializeMapStatuses(fetchedBytes)
           logInfo("Got the output locations")
+          // 9.将fetchedStatuses存入mapStatuses
           mapStatuses.put(shuffleId, fetchedStatuses)
         } finally {
           fetching.synchronized {
+            // 10.因为已经拉取此shuffleId的mapStatuses，将待拉取fetching缓存中移除此shuffleId
             fetching -= shuffleId
+            // 11.唤醒此线程
             fetching.notifyAll()
           }
         }
@@ -869,19 +882,24 @@ private[spark] object MapOutputTracker extends Logging {
    *         and the second item is a sequence of (shuffle block ID, shuffle block size) tuples
    *         describing the shuffle blocks that are stored at that block manager.
    */
+    // 获取各个block位置信息
   def convertMapStatuses(
       shuffleId: Int,
       startPartition: Int,
       endPartition: Int,
       statuses: Array[MapStatus]): Iterator[(BlockManagerId, Seq[(BlockId, Long)])] = {
     assert (statuses != null)
+      // 存放结果
     val splitsByAddress = new HashMap[BlockManagerId, ListBuffer[(BlockId, Long)]]
+      // 迭代status
     for ((status, mapId) <- statuses.iterator.zipWithIndex) {
+      // 非空判断
       if (status == null) {
         val errorMessage = s"Missing an output location for shuffle $shuffleId"
         logError(errorMessage)
         throw new MetadataFetchFailedException(shuffleId, startPartition, errorMessage)
       } else {
+        // 迭代partitions
         for (part <- startPartition until endPartition) {
           val size = status.getSizeForBlock(part)
           if (size != 0) {
@@ -891,6 +909,7 @@ private[spark] object MapOutputTracker extends Logging {
         }
       }
     }
+      // 此时shuffleBlockId=shuffleId+mapId+reduceId
     splitsByAddress.iterator
   }
 }
