@@ -349,8 +349,10 @@ final class ShuffleBlockFetcherIterator(
     }
   }
 
+  // 初始化
   private[this] def initialize(): Unit = {
     // Add a task completion callback (called in both success case and failure case) to cleanup.
+    // 用于task任务运行完后，清理占用的内存
     context.addTaskCompletionListener[Unit](_ => cleanup())
 
     // Split local and remote blocks.
