@@ -54,6 +54,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
       // 此时这三个参数就可以得到以下结论
       // handle.shuffleId：通过限制shuffleId来得到上一个stage中所有shuffleMapTask输出的mapstatus
       // startPartition、endPartition：通过限制分区开始结束来得到这个resultTask所需要的每个shuffleMapTask的输出文件信息
+      // 通过它得到 2元tuple : (BlockManagerId, Seq[(BlockId, BlockSize)])
       mapOutputTracker.getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition),
       serializerManager.wrapStream,
       // Note: we use getSizeAsMb when no suffix is provided for backwards compatibility
@@ -67,6 +68,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
     val serializerInstance = dep.serializer.newInstance()
 
     // Create a key/value iterator for each stream
+      //
     val recordIter = wrappedStreams.flatMap { case (blockId, wrappedStream) =>
       // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
       // NextIterator. The NextIterator makes sure that close() is called on the
