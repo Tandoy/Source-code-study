@@ -214,6 +214,10 @@ final class ShuffleBlockFetcherIterator(
     }
   }
 
+  /**
+   * 发送网络拉取数据请求
+   * @param req
+   */
   private[this] def sendRequest(req: FetchRequest) {
     logDebug("Sending request for %d blocks (%s) from %s".format(
       req.blocks.size, Utils.bytesToString(req.size), req.address.hostPort))
@@ -227,6 +231,7 @@ final class ShuffleBlockFetcherIterator(
     val address = req.address
 
     val blockFetchingListener = new BlockFetchingListener {
+      // 拉取数据块成功的回调方法
       override def onBlockFetchSuccess(blockId: String, buf: ManagedBuffer): Unit = {
         // Only add the buffer to results queue if the iterator is not zombie,
         // i.e. cleanup() has not been called yet.
@@ -253,6 +258,7 @@ final class ShuffleBlockFetcherIterator(
     // Fetch remote shuffle blocks to disk when the request is too large. Since the shuffle data is
     // already encrypted and compressed over the wire(w.r.t. the related configs), we can just fetch
     // the data and write it to file directly.
+    // 请求的数据块大小大于MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM
     if (req.size > maxReqSizeShuffleToMem) {
       shuffleClient.fetchBlocks(address.host, address.port, address.executorId, blockIds.toArray,
         blockFetchingListener, this)
@@ -262,10 +268,15 @@ final class ShuffleBlockFetcherIterator(
     }
   }
 
+  //拉取数据方式：本地/远程拉取
   private[this] def splitLocalRemoteBlocks(): ArrayBuffer[FetchRequest] = {
     // Make remote requests at most maxBytesInFlight / 5 in length; the reason to keep them
     // smaller than maxBytesInFlight is to allow multiple, parallel fetches from up to 5
     // nodes, rather than blocking on reading output from one node.
+
+    // targetRequestSize：单线程最多一次拉取的数据块大小
+    // maxBytesInFlight / 5、1L取较大值，maxBytesInFlight默认：48M
+    // 此处一般五个并发同时在一个节点拉取数据
     val targetRequestSize = math.max(maxBytesInFlight / 5, 1L)
     logDebug("maxBytesInFlight: " + maxBytesInFlight + ", targetRequestSize: " + targetRequestSize
       + ", maxBlocksInFlightPerAddress: " + maxBlocksInFlightPerAddress)
@@ -273,9 +284,11 @@ final class ShuffleBlockFetcherIterator(
     // Split local and remote blocks. Remote blocks are further split into FetchRequests of size
     // at most maxBytesInFlight in order to limit the amount of data in flight.
     val remoteRequests = new ArrayBuffer[FetchRequest]
-
+    // 遍历此次shuffle的所以数据块信息
     for ((address, blockInfos) <- blocksByAddress) {
+      // 当数据和所在的BlockManager在一个节点时，把该信息加入到localBlocks列表中
       if (address.executorId == blockManager.blockManagerId.executorId) {
+        // 数据块大小的判断
         blockInfos.find(_._2 <= 0) match {
           case Some((blockId, size)) if size < 0 =>
             throw new BlockException(blockId, "Negative block size " + size)
@@ -285,12 +298,13 @@ final class ShuffleBlockFetcherIterator(
         }
         localBlocks ++= blockInfos.map(_._1)
         numBlocksToFetch += localBlocks.size
-      } else {
+      } else { //不在一个节点的，需进行网络拉取
         val iterator = blockInfos.iterator
         var curRequestSize = 0L
         var curBlocks = new ArrayBuffer[(BlockId, Long)]
         while (iterator.hasNext) {
           val (blockId, size) = iterator.next()
+          // 远程拉取得的数据块大小size判断
           if (size < 0) {
             throw new BlockException(blockId, "Negative block size " + size)
           } else if (size == 0) {
@@ -301,9 +315,11 @@ final class ShuffleBlockFetcherIterator(
             numBlocksToFetch += 1
             curRequestSize += size
           }
+          //如果一个block过大，会引发堆外内存oom
           if (curRequestSize >= targetRequestSize ||
               curBlocks.size >= maxBlocksInFlightPerAddress) {
             // Add this FetchRequest
+            // 当获取的数据超过阈值后，会生成一个FetchRequest对象
             remoteRequests += new FetchRequest(address, curBlocks)
             logDebug(s"Creating fetch request of $curRequestSize at $address "
               + s"with ${curBlocks.size} blocks")
@@ -356,20 +372,25 @@ final class ShuffleBlockFetcherIterator(
     context.addTaskCompletionListener[Unit](_ => cleanup())
 
     // Split local and remote blocks.
+    // 划分数据的读取方式：本地读取/远程拉取
     val remoteRequests = splitLocalRemoteBlocks()
     // Add the remote requests into our queue in a random order
+    // 将生成的远程请求加入fetchRequests请求队列中，并进行随机排序
     fetchRequests ++= Utils.randomize(remoteRequests)
     assert ((0 == reqsInFlight) == (0 == bytesInFlight),
       "expected reqsInFlight = 0 but found reqsInFlight = " + reqsInFlight +
       ", expected bytesInFlight = 0 but found bytesInFlight = " + bytesInFlight)
 
     // Send out initial requests for blocks, up to our maxBytesInFlight
+    // 进行数据块网络拉取
     fetchUpToMaxBytes()
 
+    // 经过fetchUpToMaxBytes后，还需拉取的数据块大小
     val numFetches = remoteRequests.size - fetchRequests.size
     logInfo("Started " + numFetches + " remote fetches in" + Utils.getUsedTimeMs(startTime))
 
     // Get Local Blocks
+    // 获取本地数据
     fetchLocalBlocks()
     logDebug("Got local blocks in " + Utils.getUsedTimeMs(startTime))
   }
@@ -500,13 +521,16 @@ final class ShuffleBlockFetcherIterator(
     // immediately, defer the request until the next time it can be processed.
 
     // Process any outstanding deferred fetch requests if possible.
+    // deferredFetchRequests：推迟的网络拉取数据块请求
     if (deferredFetchRequests.nonEmpty) {
       for ((remoteAddress, defReqQueue) <- deferredFetchRequests) {
+        // 当前拉取数据块是否大于最大值
         while (isRemoteBlockFetchable(defReqQueue) &&
             !isRemoteAddressMaxedOut(remoteAddress, defReqQueue.front)) {
           val request = defReqQueue.dequeue()
           logDebug(s"Processing deferred fetch request for $remoteAddress with "
             + s"${request.blocks.length} blocks")
+          // 发送请求
           send(remoteAddress, request)
           if (defReqQueue.isEmpty) {
             deferredFetchRequests -= remoteAddress
