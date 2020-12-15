@@ -377,18 +377,22 @@ private[spark] class BlockManager(
    * Interface to get local block data. Throws an exception if the block cannot be found or
    * cannot be read successfully.
    */
+    // 抓取本地数据块，如果根据BlockId找不到数据块或者读取失败则抛出异常
   override def getBlockData(blockId: BlockId): ManagedBuffer = {
     if (blockId.isShuffle) {
       shuffleManager.shuffleBlockResolver.getBlockData(blockId.asInstanceOf[ShuffleBlockId])
     } else {
       getLocalBytes(blockId) match {
+          // 已读取到blockData，返回buffer
         case Some(blockData) =>
           new BlockManagerManagedBuffer(blockInfoManager, blockId, blockData, true)
         case None =>
           // If this block manager receives a request for a block that it doesn't have then it's
           // likely that the master has outdated block statuses for this block. Therefore, we send
           // an RPC so that this block is marked as being unavailable from this block manager.
+          // 根据BlockId找不到数据块或者读取失败向blockInfoManager汇报当前block状态
           reportBlockStatus(blockId, BlockStatus.empty)
+          // 并抛出异常
           throw new BlockNotFoundException(blockId.toString)
       }
     }
