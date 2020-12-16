@@ -439,13 +439,14 @@ private[spark] class MemoryStore(
    * @param memoryMode the type of memory to free (on- or off-heap)
    * @return the amount of memory (in bytes) freed by eviction
    */
+    // 此方法用于drop部分Block，以便释放一些空间来存储新的Block。
   private[spark] def evictBlocksToFreeSpace(
       blockId: Option[BlockId],
-      space: Long,
-      memoryMode: MemoryMode): Long = {
+      space: Long, //需释放内存大小
+      memoryMode: MemoryMode): Long = { // block内存模式
     assert(space > 0)
     memoryManager.synchronized {
-      var freedMemory = 0L
+      var freedMemory = 0L // 已经释放的内存大小
       val rddToAdd = blockId.flatMap(getRddId)
       val selectedBlocks = new ArrayBuffer[BlockId]
       def blockIsEvictable(blockId: BlockId, entry: MemoryEntry[_]): Boolean = {
@@ -477,8 +478,10 @@ private[spark] class MemoryStore(
           case DeserializedMemoryEntry(values, _, _) => Left(values)
           case SerializedMemoryEntry(buffer, _, _) => Right(buffer)
         }
-        val newEffectiveStorageLevel =
+        val newEffectiveStorageLevel = {
+          // 释放内存
           blockEvictionHandler.dropFromMemory(blockId, () => data)(entry.classTag)
+        }
         if (newEffectiveStorageLevel.isValid) {
           // The block is still present in at least one store, so release the lock
           // but don't delete the block info
@@ -489,7 +492,7 @@ private[spark] class MemoryStore(
           blockInfoManager.removeBlock(blockId)
         }
       }
-
+      // 当已经释放内存已达到所需内存进行drop block data操作
       if (freedMemory >= space) {
         var lastSuccessfulBlock = -1
         try {
