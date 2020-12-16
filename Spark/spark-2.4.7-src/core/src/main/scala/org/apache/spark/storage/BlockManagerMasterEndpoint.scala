@@ -582,10 +582,13 @@ private[spark] class BlockManagerInfo(
        * They can be both larger than 0, when a block is dropped from memory to disk.
        * Therefore, a safe way to set BlockStatus is to set its info in accurate modes. */
       var blockStatus: BlockStatus = null
-      //
+      // 使用内存存储级别
       if (storageLevel.useMemory) {
+        // 创建blockStatus
         blockStatus = BlockStatus(storageLevel, memSize = memSize, diskSize = 0)
+        // 放入缓存
         _blocks.put(blockId, blockStatus)
+        // 内存资源更新
         _remainingMem -= memSize
         if (blockExists) {
           logInfo(s"Updated $blockId in memory on ${blockManagerId.hostPort}" +
@@ -598,8 +601,11 @@ private[spark] class BlockManagerInfo(
             s" free: ${Utils.bytesToString(_remainingMem)})")
         }
       }
+      // 使用磁盘存储级别
       if (storageLevel.useDisk) {
+        // 创建blockStatus
         blockStatus = BlockStatus(storageLevel, memSize = 0, diskSize = diskSize)
+        // 放入缓存
         _blocks.put(blockId, blockStatus)
         if (blockExists) {
           logInfo(s"Updated $blockId on disk on ${blockManagerId.hostPort}" +
@@ -611,10 +617,12 @@ private[spark] class BlockManagerInfo(
         }
       }
       if (!blockId.isBroadcast && blockStatus.isCached) {
+        // 当前blockId不是广播变量，并且 memSize + diskSize > 0
         _cachedBlocks += blockId
       }
     } else if (blockExists) {
       // If isValid is not true, drop the block.
+      // 如果存储级别不可用，drop此block
       _blocks.remove(blockId)
       _cachedBlocks -= blockId
       if (originalLevel.useMemory) {
