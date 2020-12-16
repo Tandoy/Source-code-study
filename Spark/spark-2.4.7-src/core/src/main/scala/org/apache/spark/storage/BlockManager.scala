@@ -14,7 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/**
+ * BlockManager：在每个节点都会创建，包括driver和executor
+ * 主要负责本地/远程的数据存取，存取级别可分为：内存、磁盘、堆外
+ * 主要分析 diskStore、memoryStore、blockTransferService等组件
+ * 主要分析 initialize(初始化)、doGetLocalBytes（本地拉取数据）/getRemoteBytes（网络拉取数据）
+ *        doPutBytes（存数据）
+ */
 package org.apache.spark.storage
 
 import java.io._
