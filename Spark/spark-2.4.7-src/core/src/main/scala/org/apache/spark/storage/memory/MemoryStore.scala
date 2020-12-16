@@ -91,6 +91,7 @@ private[spark] class MemoryStore(
   // Note: all changes to memory allocations, notably putting blocks, evicting blocks, and
   // acquiring or releasing unroll memory, must be synchronized on `memoryManager`!
 
+  // MemoryEntry就是实际数据内容
   private val entries = new LinkedHashMap[BlockId, MemoryEntry[_]](32, 0.75f, true)
 
   // A mapping from taskAttemptId to amount of memory used for unrolling a block (in bytes)
@@ -152,6 +153,7 @@ private[spark] class MemoryStore(
       // We acquired enough memory for the block, so go ahead and put it
       val bytes = _bytes()
       assert(bytes.size == size)
+      // entry
       val entry = new SerializedMemoryEntry[T](bytes, memoryMode, implicitly[ClassTag[T]])
       entries.synchronized {
         entries.put(blockId, entry)
@@ -366,22 +368,26 @@ private[spark] class MemoryStore(
   }
 
   def getBytes(blockId: BlockId): Option[ChunkedByteBuffer] = {
+    // entry加上同步锁
     val entry = entries.synchronized { entries.get(blockId) }
     entry match {
       case null => None
       case e: DeserializedMemoryEntry[_] =>
         throw new IllegalArgumentException("should only call getBytes on serialized blocks")
+        // 必须为序列化后的数据
       case SerializedMemoryEntry(bytes, _, _) => Some(bytes)
     }
   }
 
   def getValues(blockId: BlockId): Option[Iterator[_]] = {
+    // entry加上同步锁
     val entry = entries.synchronized { entries.get(blockId) }
     entry match {
       case null => None
       case e: SerializedMemoryEntry[_] =>
         throw new IllegalArgumentException("should only call getValues on deserialized blocks")
       case DeserializedMemoryEntry(values, _, _) =>
+        // 必须为反序列化后的数据
         val x = Some(values)
         x.map(_.iterator)
     }
