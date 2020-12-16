@@ -522,7 +522,7 @@ private[spark] class MemoryStore(
             // the blocks we didn't process successfully are still locked, so we have to unlock them
             (lastSuccessfulBlock + 1 until selectedBlocks.size).foreach { idx =>
               val blockId = selectedBlocks(idx)
-              blockInfoManager.unlock(blockId)
+              blockInfoManager.unlock(blockId) //解除写锁
             }
           }
         }
