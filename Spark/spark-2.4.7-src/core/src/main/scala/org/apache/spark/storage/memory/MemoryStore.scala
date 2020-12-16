@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/**
+ *主要分析get、put方法
+ */
 package org.apache.spark.storage.memory
 
 import java.io.OutputStream
