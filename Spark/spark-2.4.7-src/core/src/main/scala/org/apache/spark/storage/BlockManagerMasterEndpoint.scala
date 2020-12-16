@@ -50,9 +50,11 @@ class BlockManagerMasterEndpoint(
   extends ThreadSafeRpcEndpoint with Logging {
 
   // Mapping from block manager id to the block manager's information.
+  // 用于存储blockManagerId与BlockManagerInfo的映射关系
   private val blockManagerInfo = new mutable.HashMap[BlockManagerId, BlockManagerInfo]
 
   // Mapping from executor ID to block manager ID.
+  // 用于存储blockManagerId与executorId的映射关系
   private val blockManagerIdByExecutor = new mutable.HashMap[String, BlockManagerId]
 
   // Mapping from block id to the set of block managers that have the block.
@@ -210,15 +212,19 @@ class BlockManagerMasterEndpoint(
     Future.sequence(futures)
   }
 
+  // executor.foreach(removeBlockManager) 遍历executor进程remove
   private def removeBlockManager(blockManagerId: BlockManagerId) {
+    // 1.得到此blockManagerId的blockManagerInfo
     val info = blockManagerInfo(blockManagerId)
 
     // Remove the block manager from blockManagerIdByExecutor.
+    // 解除绑定关系
     blockManagerIdByExecutor -= blockManagerId.executorId
 
     // Remove it from blockManagerInfo and remove all the blocks.
+    // 解除绑定关系
     blockManagerInfo.remove(blockManagerId)
-
+    // 得到所有blockId
     val iterator = info.blocks.keySet.iterator
     while (iterator.hasNext) {
       val blockId = iterator.next
@@ -230,6 +236,7 @@ class BlockManagerMasterEndpoint(
       // the given block. Note that we ignore other block types (such as broadcast/shuffle blocks
       // etc.) as replication doesn't make much sense in that context.
       if (locations.size == 0) {
+        // 移除
         blockLocations.remove(blockId)
         logWarning(s"No more replicas available for $blockId !")
       } else if (proactivelyReplicate && (blockId.isRDD || blockId.isInstanceOf[TestBlockId])) {
@@ -357,6 +364,7 @@ class BlockManagerMasterEndpoint(
   /**
    * Returns the BlockManagerId with topology information populated, if available.
    */
+    // blockManager向BlockManagerMaster进行注册
   private def register(
       idWithoutTopologyInfo: BlockManagerId,
       maxOnHeapMemSize: Long,
@@ -364,6 +372,7 @@ class BlockManagerMasterEndpoint(
       slaveEndpoint: RpcEndpointRef): BlockManagerId = {
     // the dummy id is not expected to contain the topology information.
     // we get that info here and respond back with a more fleshed out block manager id
+      // 1.根据executorId、host、port创建唯一ID
     val id = BlockManagerId(
       idWithoutTopologyInfo.executorId,
       idWithoutTopologyInfo.host,
@@ -371,10 +380,13 @@ class BlockManagerMasterEndpoint(
       topologyMapper.getTopologyForHost(idWithoutTopologyInfo.host))
 
     val time = System.currentTimeMillis()
+      // 2.判断blockManagerId与BlockManagerInfo的映射缓存中是否存在此blockManagerId
     if (!blockManagerInfo.contains(id)) {
+      // 3.判断blockManagerId与executorId的映射缓存中是否存在了executorId
       blockManagerIdByExecutor.get(id.executorId) match {
         case Some(oldId) =>
           // A block manager of the same executor already exists, so remove it (assumed dead)
+          // 4.若当前blockManagerId已经存在executorId进行移除操作（但需确保executor状态为dead）
           logError("Got two different block manager registrations on same executor - "
               + s" will replace old one $oldId with new one $id")
           removeExecutor(id.executorId)
@@ -382,17 +394,28 @@ class BlockManagerMasterEndpoint(
       }
       logInfo("Registering block manager %s with %s RAM, %s".format(
         id.hostPort, Utils.bytesToString(maxOnHeapMemSize + maxOffHeapMemSize), id))
-
+      // 5.将executorId加入缓存中
       blockManagerIdByExecutor(id.executorId) = id
-
+      // 6.若当前blockManagerInfo缓存中没有此BlockManagerId，为此BlockManagerId创建blockManagerInfo
       blockManagerInfo(id) = new BlockManagerInfo(
         id, System.currentTimeMillis(), maxOnHeapMemSize, maxOffHeapMemSize, slaveEndpoint)
     }
+
+      // 7.若当前blockManagerInfo缓存中已经有此BlockManagerId，进行注册
     listenerBus.post(SparkListenerBlockManagerAdded(time, id, maxOnHeapMemSize + maxOffHeapMemSize,
         Some(maxOnHeapMemSize), Some(maxOffHeapMemSize)))
     id
   }
 
+  /**
+   * 当block元数据信息发送变更，需向BlockManagerMaster进行汇报进行block元数据的更新操作
+   * @param blockManagerId
+   * @param blockId
+   * @param storageLevel
+   * @param memSize
+   * @param diskSize
+   * @return
+   */
   private def updateBlockInfo(
       blockManagerId: BlockManagerId,
       blockId: BlockId,
@@ -401,11 +424,14 @@ class BlockManagerMasterEndpoint(
       diskSize: Long): Boolean = {
 
     if (!blockManagerInfo.contains(blockManagerId)) {
+      // blockManagerInfo缓存中没有此blockManagerId
       if (blockManagerId.isDriver && !isLocal) {
+        // 当blockManager在master节点上，并且不是local模式，无需进行block块的信息更新
         // We intentionally do not register the master (except in local mode),
         // so we should not indicate failure.
         return true
       } else {
+        // 当前blockManager不在blockManagerInfo中，且不在master节点/不是local模式
         return false
       }
     }
@@ -415,6 +441,7 @@ class BlockManagerMasterEndpoint(
       return true
     }
 
+    // 更新
     blockManagerInfo(blockManagerId).updateBlockInfo(blockId, storageLevel, memSize, diskSize)
 
     var locations: mutable.HashSet[BlockManagerId] = null
@@ -424,7 +451,7 @@ class BlockManagerMasterEndpoint(
       locations = new mutable.HashSet[BlockManagerId]
       blockLocations.put(blockId, locations)
     }
-
+    //存储级别是否合法
     if (storageLevel.isValid) {
       locations.add(blockManagerId)
     } else {
@@ -509,6 +536,7 @@ private[spark] class BlockManagerInfo(
   private var _remainingMem: Long = maxMem
 
   // Mapping from block id to its status.
+  // 用于存储BlockId与BlockStatus的映射关系
   private val _blocks = new JHashMap[BlockId, BlockStatus]
 
   // Cached blocks held by this BlockManager. This does not include broadcast blocks.
@@ -541,10 +569,11 @@ private[spark] class BlockManagerInfo(
       originalDiskSize = blockStatus.diskSize
 
       if (originalLevel.useMemory) {
+        // 使用内存，进行相关资源的更新
         _remainingMem += originalMemSize
       }
     }
-
+    //存储级别是否可用 (useMemory || useDisk) && (replication > 0)
     if (storageLevel.isValid) {
       /* isValid means it is either stored in-memory or on-disk.
        * The memSize here indicates the data size in or dropped from memory,
@@ -553,6 +582,7 @@ private[spark] class BlockManagerInfo(
        * They can be both larger than 0, when a block is dropped from memory to disk.
        * Therefore, a safe way to set BlockStatus is to set its info in accurate modes. */
       var blockStatus: BlockStatus = null
+      //
       if (storageLevel.useMemory) {
         blockStatus = BlockStatus(storageLevel, memSize = memSize, diskSize = 0)
         _blocks.put(blockId, blockStatus)
