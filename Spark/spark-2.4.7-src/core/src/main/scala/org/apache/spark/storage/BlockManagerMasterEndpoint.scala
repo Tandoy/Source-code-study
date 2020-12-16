@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/**
+ * BlockManagerMasterEndpoint其实就是负责每个executor的blockmanager的元数据维护
+ * 主要分析 注册、block相关信息更新等方法
+ * 主要分析 blockManagerInfo、blockStatus等组件
+ */
 package org.apache.spark.storage
 
 import java.io.IOException
