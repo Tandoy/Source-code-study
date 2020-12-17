@@ -306,6 +306,7 @@ abstract class RDD[T: ClassTag](
    */
   final def iterator(split: Partition, context: TaskContext): Iterator[T] = {
     //数据存储级别的判断
+    // storageLevel不为空，即已经持久化(memory/disk)
     if (storageLevel != StorageLevel.NONE) {
       getOrCompute(split, context)
     } else {
@@ -355,17 +356,21 @@ abstract class RDD[T: ClassTag](
   /**
    * Gets or computes an RDD partition. Used by RDD.iterator() when an RDD is cached.
    */
+    // 当RDD被持久化时called
   private[spark] def getOrCompute(partition: Partition, context: TaskContext): Iterator[T] = {
-    //计算partitionblockID
+    //计算partition blockID
     val blockId = RDDBlockId(id, partition.index)
     var readCachedBlock = true
     // This method is called on executors, so we need call SparkEnv.get instead of sc.env.
+      //由blockManager获取持久化数据blockResult，并且会将计算后的数据再持久化一份
     SparkEnv.get.blockManager.getOrElseUpdate(blockId, storageLevel, elementClassTag, () => {
       readCachedBlock = false
       computeOrReadCheckpoint(partition, context)
     }) match {
+        //Left主要是表示Failure,Right表示有
       case Left(blockResult) =>
         if (readCachedBlock) {
+          // 从cache中读取
           val existingMetrics = context.taskMetrics().inputMetrics
           existingMetrics.incBytesRead(blockResult.bytes)
           new InterruptibleIterator[T](context, blockResult.data.asInstanceOf[Iterator[T]]) {
@@ -374,7 +379,9 @@ abstract class RDD[T: ClassTag](
               delegate.next()
             }
           }
-        } else {
+        }
+        // 不是从cache中读取到数据
+        else {
           new InterruptibleIterator(context, blockResult.data.asInstanceOf[Iterator[T]])
         }
       case Right(iter) =>
