@@ -245,6 +245,7 @@ private[spark] object ReliableCheckpointRDD extends Logging {
    * This is done on a best-effort basis; any exception while reading the partitioner is
    * caught, logged and ignored.
    */
+  // 当RDD设置checkpoint之后，读取HDFS数据
   private def readCheckpointedPartitionerFile(
       sc: SparkContext,
       checkpointDirPath: String): Option[Partitioner] = {
@@ -281,6 +282,7 @@ private[spark] object ReliableCheckpointRDD extends Logging {
   /**
    * Read the content of the specified checkpoint file.
    */
+    // 当RDD设置checkpoint之后，读取外部文件系统数据
   def readCheckpointFile[T](
       path: Path,
       broadcastedConf: Broadcast[SerializableConfiguration],
