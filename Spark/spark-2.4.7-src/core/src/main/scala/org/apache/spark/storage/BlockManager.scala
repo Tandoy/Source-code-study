@@ -1112,6 +1112,7 @@ private[spark] class BlockManager(
           blockInfoManager.unlock(blockId)
         }
       } else {
+        // put失败
         removeBlockInternal(blockId, tellMaster = false)
         logWarning(s"Putting block $blockId failed")
       }
@@ -1180,20 +1181,26 @@ private[spark] class BlockManager(
       if (level.useMemory) {
         // Put it in memory first, even if it also has useDisk set to true;
         // We will drop it to disk later if the memory store can't hold it.
+        // 存储级别为MEMORY_AND_DISK时，首先选择内存，当内存不够时先把内存一部分数据drop至disk
         if (level.deserialized) {
+          // 向内存中写入数据
           memoryStore.putIteratorAsValues(blockId, iterator(), classTag) match {
             case Right(s) =>
               size = s
             case Left(iter) =>
               // Not enough space to unroll this block; drop to disk if applicable
+              // 当memory中没有足够空间，写至disk
               if (level.useDisk) {
                 logWarning(s"Persisting block $blockId to disk instead.")
                 diskStore.put(blockId) { channel =>
+                  //java I/O写入磁盘
                   val out = Channels.newOutputStream(channel)
                   serializerManager.dataSerializeStream(blockId, out, iter)(classTag)
                 }
+                // 获取此block的写入的disk大小
                 size = diskStore.getSize(blockId)
               } else {
+                // 当putIteratorAsValues called失败调用
                 iteratorFromFailedMemoryStorePut = Some(iter)
               }
           }
@@ -1215,7 +1222,7 @@ private[spark] class BlockManager(
               }
           }
         }
-
+       // 存储级别只为disk
       } else if (level.useDisk) {
         diskStore.put(blockId) { channel =>
           val out = Channels.newOutputStream(channel)
@@ -1234,8 +1241,10 @@ private[spark] class BlockManager(
         }
         addUpdatedBlockStatusToTaskMetrics(blockId, putBlockStatus)
         logDebug("Put block %s locally took %s".format(blockId, Utils.getUsedTimeMs(startTimeMs)))
+        // 存储级别_2，副本数>1
         if (level.replication > 1) {
           val remoteStartTime = System.currentTimeMillis
+          // 创建副本
           val bytesToReplicate = doGetLocalBytes(blockId, info)
           // [SPARK-16550] Erase the typed classTag when using default serialization, since
           // NettyBlockRpcServer crashes when deserializing repl-defined classes.
@@ -1246,6 +1255,7 @@ private[spark] class BlockManager(
             classTag
           }
           try {
+            // 随机选择节点分发副本
             replicate(blockId, bytesToReplicate, level, remoteClassTag)
           } finally {
             bytesToReplicate.dispose()
@@ -1395,13 +1405,14 @@ private[spark] class BlockManager(
    * Replicate block to another node. Note that this is a blocking call that returns after
    * the block has been replicated.
    */
+    // 随机选择节点分发副本
   private def replicate(
       blockId: BlockId,
       data: BlockData,
       level: StorageLevel,
       classTag: ClassTag[_],
       existingReplicas: Set[BlockManagerId] = Set.empty): Unit = {
-
+    // 副本分发失败最多次数，默认1
     val maxReplicationFailures = conf.getInt("spark.storage.maxReplicationFailures", 1)
     val tLevel = StorageLevel(
       useDisk = level.useDisk,
@@ -1415,28 +1426,32 @@ private[spark] class BlockManager(
 
     val peersReplicatedTo = mutable.HashSet.empty ++ existingReplicas
     val peersFailedToReplicateTo = mutable.HashSet.empty[BlockManagerId]
-    var numFailures = 0
+    var numFailures = 0  // 失败次数
 
     val initialPeers = getPeers(false).filterNot(existingReplicas.contains)
 
+      // 获取可分发副本的节点集合 blockManagerIds
     var peersForReplication = blockReplicationPolicy.prioritize(
       blockManagerId,
       initialPeers,
       peersReplicatedTo,
       blockId,
       numPeersToReplicateTo)
-
+    // 失败次数<设置值 && 可分发节点不为空 && 分发失败副本<level.replication - 1
     while(numFailures <= maxReplicationFailures &&
       !peersForReplication.isEmpty &&
       peersReplicatedTo.size < numPeersToReplicateTo) {
+      // 从集合中取出一个节点
       val peer = peersForReplication.head
       try {
         val onePeerStartTime = System.nanoTime
         logTrace(s"Trying to replicate $blockId of ${data.size} bytes to $peer")
         // This thread keeps a lock on the block, so we do not want the netty thread to unlock
         // block when it finishes sending the message.
+        // 创建buffer缓存
         val buffer = new BlockManagerManagedBuffer(blockInfoManager, blockId, data, false,
           unlockOnDeallocate = false)
+        // 调用blockTransferService进行网络传输
         blockTransferService.uploadBlockSync(
           peer.host,
           peer.port,
@@ -1459,7 +1474,7 @@ private[spark] class BlockManager(
           val filteredPeers = getPeers(true).filter { p =>
             !peersFailedToReplicateTo.contains(p) && !peersReplicatedTo.contains(p)
           }
-
+          // 分发副本失败后相关处理
           numFailures += 1
           peersForReplication = blockReplicationPolicy.prioritize(
             blockManagerId,
