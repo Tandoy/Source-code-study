@@ -875,6 +875,7 @@ private[spark] class BlockManager(
    * @return either a BlockResult if the block was successfully cached, or an iterator if the block
    *         could not be cached.
    */
+    //读取数据
   def getOrElseUpdate[T](
       blockId: BlockId,
       level: StorageLevel,
@@ -882,6 +883,7 @@ private[spark] class BlockManager(
       makeIterator: () => Iterator[T]): Either[BlockResult, Iterator[T]] = {
     // Attempt to read the block from local or remote storage. If it's present, then we don't need
     // to go through the local-get-or-put path.
+      // 读取数据前进行block判断
     get[T](blockId)(classTag) match {
       case Some(block) =>
         return Left(block)
@@ -893,6 +895,7 @@ private[spark] class BlockManager(
       case None =>
         // doPut() didn't hand work back to us, so the block already existed or was successfully
         // stored. Therefore, we now hold a read lock on the block.
+        // 调用doPut()方法若没有返回响应，说明此块已经存在或者成功存储，并在此block上加读锁
         val blockResult = getLocalValues(blockId).getOrElse {
           // Since we held a read lock between the doPut() and get() calls, the block should not
           // have been evicted, so get() not returning the block indicates some internal error.
@@ -1082,6 +1085,7 @@ private[spark] class BlockManager(
     require(level != null && level.isValid, "StorageLevel is null or invalid")
 
     val putBlockInfo = {
+      // 创建BlockInfo
       val newInfo = new BlockInfo(level, classTag, tellMaster)
       if (blockInfoManager.lockNewBlockForWriting(blockId, newInfo)) {
         newInfo
@@ -1156,6 +1160,10 @@ private[spark] class BlockManager(
    * @return None if the block was already present or if the put succeeded, or Some(iterator)
    *         if the put failed.
    */
+    // 根据blockId以及存储级别进行写操作/复制副本操作
+    // 如果此block已存在不会进行覆盖
+    // keepReadLock：是否添加读锁，默认false
+    // called返回值：None-block已经存在或者写入相应存储级别成功；Some-put失败
   private def doPutIterator[T](
       blockId: BlockId,
       iterator: () => Iterator[T],
@@ -1163,6 +1171,7 @@ private[spark] class BlockManager(
       classTag: ClassTag[T],
       tellMaster: Boolean = true,
       keepReadLock: Boolean = false): Option[PartiallyUnrolledIterator[T]] = {
+      // 实际写入存储介质doPut()
     doPut(blockId, level, classTag, tellMaster = tellMaster, keepReadLock = keepReadLock) { info =>
       val startTimeMs = System.currentTimeMillis
       var iteratorFromFailedMemoryStorePut: Option[PartiallyUnrolledIterator[T]] = None
