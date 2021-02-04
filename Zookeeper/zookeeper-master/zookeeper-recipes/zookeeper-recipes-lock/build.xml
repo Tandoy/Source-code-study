@@ -15,7 +15,7 @@
    limitations under the License.
 -->
 
-<project name="election" default="jar">
+<project name="lock" default="jar">
   <import file="../build-recipes.xml"/>
     <property name="test.main.classes" value="${zk.root}/build/test/classes"/>
     <property name="test.build.dir" value="${build.test}" />
@@ -52,7 +52,7 @@
 
 	<target name="compile-test" depends="compile">
   		<property name="target.jdk" value="${ant.java.version}" />	
-		<property name="src.test.local" location="${basedir}/src/test/java" />
+		<property name="src.test.local" location="/Source-code-study/Zookeeper/zookeeper-master/zookeeper-recipes/zookeeper-recipes-lock/src/test/java" />
 		<mkdir dir="${build.test}"/>
 		<javac srcdir="${src.test.local}" 
 			destdir="${build.test}" 
@@ -86,7 +86,7 @@
                fork="yes"
                forkmode="${test.junit.fork.mode}"
                maxmemory="${test.junit.maxmem}"
-               dir="${basedir}" timeout="${test.timeout}"
+               dir="/Source-code-study/Zookeeper/zookeeper-master/zookeeper-recipes/zookeeper-recipes-lock" timeout="${test.timeout}"
                errorProperty="tests.failed" failureProperty="tests.failed">
           <sysproperty key="build.test.dir" value="${test.tmp.dir}" />
           <sysproperty key="test.data.dir" value="${test.data.dir}" />
@@ -99,11 +99,11 @@
           </classpath>
           <formatter type="${test.junit.output.format}" />
           <batchtest todir="${test.log.dir}" unless="testcase">
-              <fileset dir="${test.src.dir}"
+              <fileset dir="src/test/java"
                      includes="**/*${test.category}Test.java"/>
           </batchtest>
           <batchtest todir="${test.log.dir}" if="testcase">
-              <fileset dir="${test.src.dir}" includes="**/${testcase}.java"/>
+              <fileset dir="src/test/java" includes="**/${testcase}.java"/>
           </batchtest>
        </junit>
             <fail if="tests.failed">Tests failed!</fail>
@@ -112,15 +112,19 @@
   <target name="package" depends="jar, zookeeperbuildrecipes.package"
           unless="skip.recipes">
 
-    <copy file="${basedir}/build.xml" todir="${dist.dir}/zookeeper-recipes/zookeeper-recipes-${name}"/>
+    <copy file="/Source-code-study/Zookeeper/zookeeper-master/zookeeper-recipes/zookeeper-recipes-lock/build.xml" todir="${dist.dir}${package.share}/zookeeper-recipes/zookeeper-recipes-${name}"/>
 
-    <mkdir dir="${dist.dir}/zookeeper-recipes/zookeeper-recipes-${name}/src/test/java"/>
-    <copy todir="${dist.dir}/zookeeper-recipes/zookeeper-recipes-${name}/src/test/java">
-      <fileset dir="${basedir}/src/test/java"/>
+    <mkdir dir="${dist.dir}${package.share}/zookeeper-recipes/zookeeper-recipes-${name}/src/test/java"/>
+    <copy todir="${dist.dir}${package.share}/zookeeper-recipes/zookeeper-recipes-${name}/src/test/java">
+      <fileset dir="/Source-code-study/Zookeeper/zookeeper-master/zookeeper-recipes/zookeeper-recipes-lock/src/test/java"/>
     </copy>
-    <mkdir dir="${dist.dir}/zookeeper-recipes/zookeeper-recipes-${name}/src/main/java"/>
-    <copy todir="${dist.dir}/zookeeper-recipes/zookeeper-recipes-${name}/src/main/java">
-      <fileset dir="${basedir}/src/main/java"/>
+    <mkdir dir="${dist.dir}${package.share}/zookeeper-recipes/zookeeper-recipes-${name}/src/main/java"/>
+    <copy todir="${dist.dir}${package.share}/zookeeper-recipes/zookeeper-recipes-${name}/src/main/java">
+      <fileset dir="/Source-code-study/Zookeeper/zookeeper-master/zookeeper-recipes/zookeeper-recipes-lock/src/main/java"/>
+    </copy>
+    <mkdir dir="${dist.dir}${package.share}/zookeeper-recipes/zookeeper-recipes-${name}/src/main/c"/>
+    <copy todir="${dist.dir}${package.share}/zookeeper-recipes/zookeeper-recipes-${name}/src/main/c">
+      <fileset dir="/Source-code-study/Zookeeper/zookeeper-master/zookeeper-recipes/zookeeper-recipes-lock/src/main/c"/>
     </copy>
   </target>
 

@@ -17,7 +17,7 @@
    limitations under the License.
 -->
 
-<project name="zkperl" default="compile">
+<project name="zktreeutil" default="compile">
   <import file="../build-contrib.xml"/>
 
   <target name="init" depends="check-contrib" unless="skip.contrib">
@@ -31,7 +31,7 @@
 
     <mkdir dir="${build.dir}"/>
     <copy todir="${build.dir}">
-      <fileset dir="${basedir}">
+      <fileset dir="/Source-code-study/Zookeeper/zookeeper-master/zookeeper-contrib/zookeeper-contrib-zktreeutil">
         <exclude name="**/VERSION"/>
       </fileset>
     </copy>
@@ -40,11 +40,11 @@
     </exec>
   </target>
 
-	<target name="jar" depends="compile" >
-		<echo message="No jar target defined for this package"/>
-	</target>
+    <target name="jar" depends="compile" >
+        <echo message="No jar target defined for this package"/>
+    </target>
 
- 	<target name="test">
+     <target name="test">
         <echo message="No test target defined for this package" />
     </target>
 

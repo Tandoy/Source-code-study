@@ -17,12 +17,12 @@
    limitations under the License.
 -->
 
-<project name="zookeepercontrib" default="compile" basedir=".">
+<project name="zookeepercontrib" default="compile" basedir="">
 
   <property name="contribfilesetincludes" value="*/build.xml" />
   <property name="contribfilesetexcludes" value="zookeeper-contrib-fatjar/build.xml" />
 
-  <fileset id="contribfileset" dir=".">
+  <fileset id="contribfileset" dir="">
     <include name="${contribfilesetincludes}"/>
     <exclude name="${contribfilesetexcludes}"/>
   </fileset>

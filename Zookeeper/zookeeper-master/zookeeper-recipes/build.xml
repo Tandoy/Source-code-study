@@ -17,7 +17,7 @@
    limitations under the License.
 -->
 
-<project name="zookeeperrecipes" default="compile" basedir=".">
+<project name="zookeeperrecipes" default="compile" basedir="">
   
   <!-- In case one of the contrib subdirectories -->
   <!-- fails the build or test targets and you cannot fix it: -->
@@ -28,7 +28,7 @@
   <!-- ====================================================== -->
   <target name="compile">
     <subant target="jar">
-      <fileset dir="." includes="*/build.xml"/>
+      <fileset dir="" includes="*/build.xml"/>
     </subant>
   </target>
   
@@ -37,7 +37,7 @@
   <!-- ====================================================== -->
   <target name="package">
     <subant target="package">
-      <fileset dir="." includes="*/build.xml"/>
+      <fileset dir="" includes="*/build.xml"/>
     </subant>
   </target>
   
@@ -46,7 +46,7 @@
   <!-- ====================================================== -->
   <target name="test">
     <subant target="test">
-      <fileset dir="." includes="*/build.xml"/>
+      <fileset dir="" includes="*/build.xml"/>
     </subant>
   </target>
   
@@ -55,7 +55,7 @@
   <!-- ====================================================== -->
   <target name="clean">
     <subant target="clean">
-      <fileset dir="." includes="*/build.xml"/>
+      <fileset dir="" includes="*/build.xml"/>
     </subant>
   </target>
 </project>

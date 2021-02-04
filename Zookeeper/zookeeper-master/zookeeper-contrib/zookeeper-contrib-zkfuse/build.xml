@@ -31,7 +31,7 @@
 
     <mkdir dir="${build.dir}"/>
     <copy todir="${build.dir}">
-      <fileset dir="${basedir}">
+      <fileset dir="/Source-code-study/Zookeeper/zookeeper-master/zookeeper-contrib/zookeeper-contrib-zkfuse">
         <exclude name="**/VERSION"/>
       </fileset>
     </copy>

@@ -76,7 +76,7 @@
 
 	<target name="compile-test" depends="ivy-retrieve-test,compile">
   		<property name="target.jdk" value="${ant.java.version}" />	
-		<property name="src.test.local" location="${basedir}/src/test" />
+		<property name="src.test.local" location="/Source-code-study/Zookeeper/zookeeper-master/zookeeper-contrib/zookeeper-contrib-rest/src/test" />
 		<mkdir dir="${build.test}"/>
 		<javac srcdir="${src.test.local}" 
 			destdir="${build.test}" 
@@ -122,7 +122,7 @@
                fork="yes"
                forkmode="${test.junit.fork.mode}"
                maxmemory="${test.junit.maxmem}"
-               dir="${basedir}" timeout="${test.timeout}"
+               dir="/Source-code-study/Zookeeper/zookeeper-master/zookeeper-contrib/zookeeper-contrib-rest" timeout="${test.timeout}"
                errorProperty="tests.failed" failureProperty="tests.failed">
           <sysproperty key="build.test.dir" value="${test.tmp.dir}" />
           <sysproperty key="test.data.dir" value="${test.data.dir}" />
@@ -137,11 +137,11 @@
 	  </classpath>
           <formatter type="${test.junit.output.format}" />
           <batchtest todir="${test.log.dir}" unless="testcase">
-              <fileset dir="${test.src.dir}"
+              <fileset dir="src/test/java"
                      includes="**/*${test.category}Test.java"/>
           </batchtest>
           <batchtest todir="${test.log.dir}" if="testcase">
-              <fileset dir="${test.src.dir}" includes="**/${testcase}.java"/>
+              <fileset dir="src/test/java" includes="**/${testcase}.java"/>
           </batchtest>
        </junit>
        <fail if="tests.failed">Tests failed!</fail>
