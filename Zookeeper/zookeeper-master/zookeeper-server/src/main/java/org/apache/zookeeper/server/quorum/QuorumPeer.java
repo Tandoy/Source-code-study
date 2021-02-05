@@ -519,10 +519,10 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     }
 
     public enum ServerState {
-        LOOKING,
-        FOLLOWING,
-        LEADING,
-        OBSERVING
+        LOOKING,  // 正在处于寻找leader状态，此时集群中没有leader产生
+        FOLLOWING, // 集群已有leader，处于跟随者状态
+        LEADING, // 领导者状态
+        OBSERVING //观察者状态 不参与投票、转发写请求给leader、提高读取速度
     }
 
     /**
@@ -1124,10 +1124,12 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
 
     @Override
     public synchronized void start() {
-        if (!getView().containsKey(myid)) {
+        if (!getView().containsKey(myid)) { // 先进行myid的相关判断
             throw new RuntimeException("My id " + myid + " not in the peer list");
         }
+        // 1.数据从磁盘加载到内存
         loadDataBase();
+        // 2.开启读线程
         startServerCnxnFactory();
         try {
             adminServer.start();
@@ -1135,16 +1137,21 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             LOG.warn("Problem starting AdminServer", e);
             System.out.println(e);
         }
+        // 3.开始选举前的各种集群角色初始化以及相关发送接收线程开启，【注意：这里并不会进行真正的leader选举】
         startLeaderElection();
+        // 4.开启jvm监控
         startJvmPauseMonitor();
+        // 5.本类的run方法
         super.start();
     }
 
+    // 此方法为zk启动集群开始leader选举的第一步，将磁盘数据加载至内存
     private void loadDataBase() {
         try {
             zkDb.loadDataBase();
 
             // load the epochs
+            // 加载事务操作日志 zxid
             long lastProcessedZxid = zkDb.getDataTree().lastProcessedZxid;
             long epochOfZxid = ZxidUtils.getEpochFromZxid(lastProcessedZxid);
             try {
@@ -1209,7 +1216,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             re.setStackTrace(e.getStackTrace());
             throw re;
         }
-
+        // 共有三种选举机制，默认第三种选举机制快速选举机制FastLeaderElection
         this.electionAlg = createElectionAlgorithm(electionType);
     }
 
@@ -1330,6 +1337,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         case 2:
             throw new UnsupportedOperationException("Election Algorithm 2 is not supported.");
         case 3:
+            // 选票其实可分为选票应用层、选票传输层
+            // QuorumCnxManager就是选票传输层
             QuorumCnxManager qcm = createCnxnManager();
             QuorumCnxManager oldQcm = qcmRef.getAndSet(qcm);
             if (oldQcm != null) {
@@ -1383,12 +1392,22 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
 
     boolean shuttingDownLE = false;
 
+    /**
+     * leader选举主方法
+     * 选举步骤：
+     *       1.先投给自己
+     * 	     2.接受其它服务器的选票
+     * 	     3.pk
+     * 	     4.将选票放至选票箱
+     * 	     5.进行统计看是否投票已经过半
+     */
     @Override
     public void run() {
         updateThreadName();
 
         LOG.debug("Starting quorum peer");
         try {
+            // jmx监控相关阅读源码时可忽略
             jmxQuorumBean = new QuorumBean(this);
             MBeanRegistry.getInstance().register(jmxQuorumBean, null);
             for (QuorumServer s : getView().values()) {
@@ -1420,16 +1439,20 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             /*
              * Main loop
              */
+            // 主循环
+            // 当服务器启动则会一致循环
             while (running) {
                 if (unavailableStartTime == 0) {
                     unavailableStartTime = Time.currentElapsedTime();
                 }
 
                 switch (getPeerState()) {
+                    // 1.获取当前服务器状态，默认初次启动为looking
                 case LOOKING:
-                    LOG.info("LOOKING");
+                    LOG.info("LOOKING"); // 正在进行
                     ServerMetrics.getMetrics().LOOKING_COUNT.add(1);
 
+                    // 若集群开启了只读模式，则在leader选举过程中可提供读请求
                     if (Boolean.getBoolean("readonlymode.enabled")) {
                         LOG.info("Attempting to start ReadOnlyZooKeeperServer");
 
@@ -1481,6 +1504,8 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                                 shuttingDownLE = false;
                                 startLeaderElection();
                             }
+
+                            // 开始leader选举，并保存选举结果
                             setCurrentVote(makeLEStrategy().lookForLeader());
                         } catch (Exception e) {
                             LOG.warn("Unexpected exception", e);

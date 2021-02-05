@@ -96,6 +96,9 @@ import org.slf4j.LoggerFactory;
  *
  */
 
+/**
+ * 这个类就是选票信息传输层抽象
+ */
 public class QuorumCnxManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(QuorumCnxManager.class);
@@ -157,14 +160,15 @@ public class QuorumCnxManager {
     /*
      * Mapping from Peer to Thread number
      */
-    final ConcurrentHashMap<Long, SendWorker> senderWorkerMap;
-    final ConcurrentHashMap<Long, BlockingQueue<ByteBuffer>> queueSendMap;
-    final ConcurrentHashMap<Long, ByteBuffer> lastMessageSent;
+
+    final ConcurrentHashMap<Long, SendWorker> senderWorkerMap; // 每台服务器所对应的senderWorker(发送消息线程)
+    final ConcurrentHashMap<Long, BlockingQueue<ByteBuffer>> queueSendMap; // 需要发送给每台服务器的消息队列
+    final ConcurrentHashMap<Long, ByteBuffer> lastMessageSent; // 发送给每台服务器最新选票信息
 
     /*
      * Reception queue
      */
-    public final BlockingQueue<Message> recvQueue;
+    public final BlockingQueue<Message> recvQueue; // 接受其他服务器发送的选票信息
 
     /*
      * Shutdown flag
@@ -335,6 +339,7 @@ public class QuorumCnxManager {
         initializeConnectionExecutor(mySid, quorumCnxnThreadsSize);
 
         // Starts listener thread that waits for connection requests
+        // 开启连接监听
         listener = new Listener();
         listener.setName("QuorumPeerListener");
     }
@@ -791,6 +796,7 @@ public class QuorumCnxManager {
         long sid;
         for (Enumeration<Long> en = queueSendMap.keys(); en.hasMoreElements(); ) {
             sid = en.nextElement();
+            // 逐个建立连接
             connectOne(sid);
         }
     }

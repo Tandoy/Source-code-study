@@ -88,6 +88,7 @@ public class QuorumPeerMain {
     public static void main(String[] args) {
         QuorumPeerMain main = new QuorumPeerMain();
         try {
+            // 解析用户自定义集群信息
             main.initializeAndRun(args);
         } catch (IllegalArgumentException e) {
             LOG.error("Invalid arguments, exiting abnormally", e);
@@ -134,10 +135,12 @@ public class QuorumPeerMain {
         purgeMgr.start();
 
         if (args.length == 1 && config.isDistributed()) {
+            // 进行启动
             runFromConfig(config);
         } else {
             LOG.warn("Either no config or no quorum defined in config, running in standalone mode");
             // there is only server in the quorum -- run as standalone
+            // 如果是standalone模式
             ZooKeeperServerMain.main(args);
         }
     }
@@ -173,7 +176,7 @@ public class QuorumPeerMain {
                 secureCnxnFactory = ServerCnxnFactory.createFactory();
                 secureCnxnFactory.configure(config.getSecureClientPortAddress(), config.getMaxClientCnxns(), config.getClientPortListenBacklog(), true);
             }
-
+            // 这里可以理解为集群信息
             quorumPeer = getQuorumPeer();
             quorumPeer.setTxnFactory(new FileTxnSnapLog(config.getDataLogDir(), config.getDataDir()));
             quorumPeer.enableLocalSessions(config.areLocalSessionsEnabled());
@@ -225,7 +228,7 @@ public class QuorumPeerMain {
             if (config.jvmPauseMonitorToRun) {
                 quorumPeer.setJvmPauseMonitor(new JvmPauseMonitor(config));
             }
-
+            // 启动集群入口
             quorumPeer.start();
             ZKAuditProvider.addZKStartStopAuditLog();
             quorumPeer.join();
