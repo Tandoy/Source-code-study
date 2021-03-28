@@ -52,14 +52,17 @@ import java.util.Objects;
  */
 public class HoodieFlinkStreamer {
   public static void main(String[] args) throws Exception {
+    // 创建流式执行环境
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-
+    // 相关参数(从命令行传入)
     final FlinkStreamerConfig cfg = new FlinkStreamerConfig();
+    // JCommander 命令行参数解析
     JCommander cmd = new JCommander(cfg, null, args);
     if (cfg.help || args.length == 0) {
       cmd.usage();
       System.exit(1);
     }
+    // 指定Checkpoint间隔时长
     env.enableCheckpointing(cfg.checkpointInterval);
     env.getConfig().setGlobalJobParameters(cfg);
     // We use checkpoint to trigger write operation, including instant generating and committing,
@@ -67,19 +70,25 @@ public class HoodieFlinkStreamer {
     env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
 
     if (cfg.flinkCheckPointPath != null) {
+      // 设置状态后端存储位置
       env.setStateBackend(new FsStateBackend(cfg.flinkCheckPointPath));
     }
 
     Configuration conf = FlinkOptions.fromStreamerConfig(cfg);
+    // 写进程个数
     int numWriteTask = conf.getInteger(FlinkOptions.WRITE_TASKS);
-
+    // kafka相关配置
     TypedProperties props = StreamerUtil.appendKafkaProps(cfg);
 
     // add data source config
     props.put(HoodieWriteConfig.WRITE_PAYLOAD_CLASS, cfg.payloadClassName);
     props.put(HoodieWriteConfig.PRECOMBINE_FIELD_PROP, cfg.sourceOrderingField);
-
+    // 根据元数据信息初始化hudi相关表
     StreamerUtil.initTableIfNotExists(conf);
+
+    /**
+     * kafakSource-->transform-->write-->commit_sink
+     */
     // Read from kafka source
     DataStream<HoodieRecord> inputRecords =
         env.addSource(new FlinkKafkaConsumer<>(cfg.kafkaTopic, new SimpleStringSchema(), props))
