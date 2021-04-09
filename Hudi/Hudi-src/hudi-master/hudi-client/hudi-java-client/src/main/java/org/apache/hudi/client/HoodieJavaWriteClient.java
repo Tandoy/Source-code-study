@@ -46,6 +46,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 提供了对应三种写入模式的方法（#insert、#upsert、#bulkinsert）,用户从配置中进行指定
+ * @param <T>
+ */
 public class HoodieJavaWriteClient<T extends HoodieRecordPayload> extends
     AbstractHoodieWriteClient<T, List<HoodieRecord<T>>, List<HoodieKey>, List<WriteStatus>> {
 
@@ -94,10 +98,14 @@ public class HoodieJavaWriteClient<T extends HoodieRecordPayload> extends
   @Override
   public List<WriteStatus> upsert(List<HoodieRecord<T>> records,
                                   String instantTime) {
+    // 1.创建hudi表
     HoodieTable<T, List<HoodieRecord<T>>, List<HoodieKey>, List<WriteStatus>> table =
         getTableAndInitCtx(WriteOperationType.UPSERT, instantTime);
+    // 2.schema校验
     table.validateUpsertSchema();
+    // 3.write前的相关：获取最后的Completed、同步meta等操作
     preWrite(instantTime, WriteOperationType.UPSERT, table.getMetaClient());
+    // 4.可能是在此步中对 records 进行Bloom Filter判断：HBaseIndex、HoodieBloomIndex、HoodieGlobalBloomIndex、InMemoryHashIndex
     HoodieWriteMetadata<List<WriteStatus>> result = table.upsert(context, instantTime, records);
     if (result.getIndexLookupDuration().isPresent()) {
       metrics.updateIndexMetrics(LOOKUP_STR, result.getIndexLookupDuration().get().toMillis());
