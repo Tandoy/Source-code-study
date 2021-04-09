@@ -105,7 +105,8 @@ public class HoodieJavaWriteClient<T extends HoodieRecordPayload> extends
     table.validateUpsertSchema();
     // 3.write前的相关：获取最后的Completed、同步meta等操作
     preWrite(instantTime, WriteOperationType.UPSERT, table.getMetaClient());
-    // 4.可能是在此步中对 records 进行Bloom Filter判断：HBaseIndex、HoodieBloomIndex、HoodieGlobalBloomIndex、InMemoryHashIndex
+    // 4.在此步中对 records 进行Bloom Filter判断：HBaseIndex、HoodieBloomIndex、HoodieGlobalBloomIndex、InMemoryHashIndex
+    // spark/flink 都会实现不同的WriteHelper，最后对records进行Bloom Filter判断
     HoodieWriteMetadata<List<WriteStatus>> result = table.upsert(context, instantTime, records);
     if (result.getIndexLookupDuration().isPresent()) {
       metrics.updateIndexMetrics(LOOKUP_STR, result.getIndexLookupDuration().get().toMillis());
