@@ -82,7 +82,7 @@ public class SparkHoodieBloomIndex<T extends HoodieRecordPayload> extends SparkH
         recordRDD.mapToPair(record -> new Tuple2<>(record.getPartitionPath(), record.getRecordKey()));
 
     // Lookup indexes for all the partition/recordkey pair
-    // 查看索引，然后将位置信息（存在于哪个文件）回推到记录中，也是Bloom Filter的关键方法
+    // 查看索引，也是Bloom Filter的关键方法
     JavaPairRDD<HoodieKey, HoodieRecordLocation> keyFilenamePairRDD =
         lookupIndex(partitionRecordKeyPairRDD, context, hoodieTable);
 
@@ -98,6 +98,7 @@ public class SparkHoodieBloomIndex<T extends HoodieRecordPayload> extends SparkH
 
     // Step 4: Tag the incoming records, as inserts or updates, by joining with existing record keys
     // 对record进行inserts or updates标记
+    // 然后将位置信息（存在于哪个文件）回推到记录中，
     // Cost: 4 sec.
     JavaRDD<HoodieRecord<T>> taggedRecordRDD = tagLocationBacktoRecords(keyFilenamePairRDD, recordRDD);
 
