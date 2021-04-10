@@ -97,6 +97,10 @@ public class HoodieKeyLookupHandle<T extends HoodieRecordPayload, I, K, O> exten
   /**
    * Adds the key for look up.
    */
+  //可以看到，这里使用到了Bloom Filter来判断该记录是否存在，
+  // 如果存在，则加入到候选队列中，等待进一步判断；
+  // 若不存在，则无需额外处理，
+  // 其中Bloom Filter会在创建HoodieKeyLookupHandle实例时初始化（从指定文件中读取Bloom Filter）。
   public void addKey(String recordKey) {
     // check record key against bloom filter of current file & add to possible keys if needed
     if (bloomFilter.mightContain(recordKey)) {
@@ -111,6 +115,7 @@ public class HoodieKeyLookupHandle<T extends HoodieRecordPayload, I, K, O> exten
   /**
    * Of all the keys, that were added, return a list of keys that were actually found in the file group.
    */
+  //
   public KeyLookupResult getLookupResult() {
     if (LOG.isDebugEnabled()) {
       LOG.debug("#The candidate row keys for " + partitionPathFilePair + " => " + candidateRecordKeys);

@@ -69,12 +69,17 @@ public class HoodieBloomIndexCheckFunction
     protected void start() {
     }
 
+    /**
+     * 使用Bloom Filter的核心逻辑承载在HoodieBloomIndexCheckFunction，
+     * HoodieBloomIndexCheckFunction$LazyKeyCheckIterator该迭代器完成了记录对应文件的实际查找过程，查询的核心逻辑在computeNext`
+     */
     @Override
     protected List<HoodieKeyLookupHandle.KeyLookupResult> computeNext() {
 
       List<HoodieKeyLookupHandle.KeyLookupResult> ret = new ArrayList<>();
       try {
         // process one file in each go.
+        // 该方法每次迭代只会处理一个文件
         while (inputItr.hasNext()) {
           Tuple2<String, HoodieKey> currentTuple = inputItr.next();
           String fileId = currentTuple._1;
@@ -84,6 +89,7 @@ public class HoodieBloomIndexCheckFunction
 
           // lazily init state
           if (keyLookupHandle == null) {
+            // 每次处理时都会生成HoodieKeyLookupHandle，然后会添加recordKey，处理完后再获取查询结果。
             keyLookupHandle = new HoodieKeyLookupHandle(config, hoodieTable, partitionPathFilePair);
           }
 

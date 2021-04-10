@@ -48,6 +48,12 @@ public abstract class AbstractWriteHelper<T extends HoodieRecordPayload, I, K, O
       I taggedRecords = dedupedRecords;
       if (performTagging) {
         // perform index loop up to get existing location of records
+        /**
+         * 利用索引给记录打标签，然后再进行更新
+         * 对于索引，Hudi提供了四种索引方式的实现：HBaseIndex、HoodieBloomIndex、HoodieGlobalBloomIndex、InMemoryHashIndex，
+         * 默认使用HoodieBloomIndex。
+         * 其中HoodieGlobalBloomIndex与HoodieBloomIndex的区别是前者会读取所有分区文件，而后者只读取记录所存在的分区下的文件。
+         */
         taggedRecords = tag(dedupedRecords, context, table);
       }
       Duration indexLookupDuration = Duration.between(lookupBegin, Instant.now());

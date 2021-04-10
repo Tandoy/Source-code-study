@@ -111,6 +111,7 @@ public class HoodieJavaWriteClient<T extends HoodieRecordPayload> extends
     if (result.getIndexLookupDuration().isPresent()) {
       metrics.updateIndexMetrics(LOOKUP_STR, result.getIndexLookupDuration().get().toMillis());
     }
+    // 5.真正写入
     return postWrite(result, instantTime, table);
   }
 

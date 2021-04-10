@@ -69,21 +69,25 @@ public class SparkHoodieBloomIndex<T extends HoodieRecordPayload> extends SparkH
   @Override
   public JavaRDD<HoodieRecord<T>> tagLocation(JavaRDD<HoodieRecord<T>> recordRDD, HoodieEngineContext context,
                                               HoodieTable<T, JavaRDD<HoodieRecord<T>>, JavaRDD<HoodieKey>, JavaRDD<WriteStatus>> hoodieTable) {
-
+    // 默认BloomIndex
     // Step 0: cache the input record RDD
+    // 缓存记录以便优化数据的加载
     if (config.getBloomIndexUseCaching()) {
       recordRDD.persist(SparkMemoryUtils.getBloomIndexInputStorageLevel(config.getProps()));
     }
 
     // Step 1: Extract out thinner JavaPairRDD of (partitionPath, recordKey)
+    // 从record中解析出对应的分区路径 -> key
     JavaPairRDD<String, String> partitionRecordKeyPairRDD =
         recordRDD.mapToPair(record -> new Tuple2<>(record.getPartitionPath(), record.getRecordKey()));
 
     // Lookup indexes for all the partition/recordkey pair
+    // 查看索引，然后将位置信息（存在于哪个文件）回推到记录中，也是Bloom Filter的关键方法
     JavaPairRDD<HoodieKey, HoodieRecordLocation> keyFilenamePairRDD =
         lookupIndex(partitionRecordKeyPairRDD, context, hoodieTable);
 
     // Cache the result, for subsequent stages.
+    // 缓存机制
     if (config.getBloomIndexUseCaching()) {
       keyFilenamePairRDD.persist(StorageLevel.MEMORY_AND_DISK_SER());
     }
@@ -93,6 +97,7 @@ public class SparkHoodieBloomIndex<T extends HoodieRecordPayload> extends SparkH
     }
 
     // Step 4: Tag the incoming records, as inserts or updates, by joining with existing record keys
+    // 对record进行inserts or updates标记
     // Cost: 4 sec.
     JavaRDD<HoodieRecord<T>> taggedRecordRDD = tagLocationBacktoRecords(keyFilenamePairRDD, recordRDD);
 
@@ -111,10 +116,13 @@ public class SparkHoodieBloomIndex<T extends HoodieRecordPayload> extends SparkH
       JavaPairRDD<String, String> partitionRecordKeyPairRDD, final HoodieEngineContext context,
       final HoodieTable hoodieTable) {
     // Obtain records per partition, in the incoming records
+    // 1.获取传入记录中每个分区的记录
     Map<String, Long> recordsPerPartition = partitionRecordKeyPairRDD.countByKey();
     List<String> affectedPartitionPathList = new ArrayList<>(recordsPerPartition.keySet());
 
     // Step 2: Load all involved files as <Partition, filename> pairs
+    // 2.对上步中所有分区的数据进行加载
+    // 对于#loadInvolvedFiles方法而言，其会查询指定分区分区下所有的数据文件（parquet格式），
     List<Tuple2<String, BloomIndexFileInfo>> fileInfoList =
         loadInvolvedFiles(affectedPartitionPathList, context, hoodieTable);
     final Map<String, List<BloomIndexFileInfo>> partitionToFileInfo =
@@ -122,6 +130,9 @@ public class SparkHoodieBloomIndex<T extends HoodieRecordPayload> extends SparkH
 
     // Step 3: Obtain a RDD, for each incoming record, that already exists, with the file id,
     // that contains it.
+    // 对于每个已存在的传入记录，获取一个RDD，其中包含它的文件ID
+    // 其实就是计算并行度后，开始找记录真正存在的文件
+    // explodeRecordRDDWithFileComparisons：借助树/链表结构构造的文件过滤器来加速记录对应文件的查找（每个record可能会对应多个文件）
     JavaRDD<Tuple2<String, HoodieKey>> fileComparisonsRDD =
         explodeRecordRDDWithFileComparisons(partitionToFileInfo, partitionRecordKeyPairRDD);
     Map<String, Long> comparisonsPerFileGroup =
@@ -130,6 +141,7 @@ public class SparkHoodieBloomIndex<T extends HoodieRecordPayload> extends SparkH
     int joinParallelism = Math.max(inputParallelism, config.getBloomIndexParallelism());
     LOG.info("InputParallelism: ${" + inputParallelism + "}, IndexParallelism: ${"
         + config.getBloomIndexParallelism() + "}");
+    // 并且如果开启了hoodie.bloom.index.prune.by.ranges，还会读取文件中的最小key和最大key（为加速后续的查找）。
     return findMatchingFilesForRecordKeys(fileComparisonsRDD, joinParallelism, hoodieTable,
         comparisonsPerFileGroup);
   }
@@ -269,6 +281,7 @@ public class SparkHoodieBloomIndex<T extends HoodieRecordPayload> extends SparkH
       fileComparisonsRDD = fileComparisonsRDD.sortBy(Tuple2::_1, true, shuffleParallelism);
     }
 
+    // 使用Bloom Filter的核心逻辑承载在HoodieBloomIndexCheckFunction()
     return fileComparisonsRDD.mapPartitionsWithIndex(new HoodieBloomIndexCheckFunction(hoodieTable, config), true)
         .flatMap(List::iterator).filter(lr -> lr.getMatchingRecordKeys().size() > 0)
         .flatMapToPair(lookupResult -> lookupResult.getMatchingRecordKeys().stream()
