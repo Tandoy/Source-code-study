@@ -58,6 +58,7 @@ public abstract class AbstractWriteHelper<T extends HoodieRecordPayload, I, K, O
       }
       Duration indexLookupDuration = Duration.between(lookupBegin, Instant.now());
 
+      // 完成位置信息回推后，就可以通过此方法进行插入更新
       HoodieWriteMetadata<O> result = executor.execute(taggedRecords);
       result.setIndexLookupDuration(indexLookupDuration);
       return result;

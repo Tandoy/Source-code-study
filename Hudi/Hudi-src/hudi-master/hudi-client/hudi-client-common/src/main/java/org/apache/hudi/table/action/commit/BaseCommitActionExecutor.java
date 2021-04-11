@@ -77,6 +77,7 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload, I,
     this.lastCompletedTxn = TransactionUtils.getLastCompletedTxnInstantAndMetadata(table.getMetaClient());
   }
 
+  // 不同引擎实现各自不同的具体upsert逻辑
   public abstract HoodieWriteMetadata<O> execute(I inputRecords);
 
   /**

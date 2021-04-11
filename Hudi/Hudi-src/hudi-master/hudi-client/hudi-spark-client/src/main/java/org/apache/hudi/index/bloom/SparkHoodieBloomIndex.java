@@ -98,7 +98,7 @@ public class SparkHoodieBloomIndex<T extends HoodieRecordPayload> extends SparkH
 
     // Step 4: Tag the incoming records, as inserts or updates, by joining with existing record keys
     // 对record进行inserts or updates标记
-    // 然后将位置信息（存在于哪个文件）回推到记录中，
+    // 然后将位置信息（存在于哪个文件）回推到记录中
     // Cost: 4 sec.
     JavaRDD<HoodieRecord<T>> taggedRecordRDD = tagLocationBacktoRecords(keyFilenamePairRDD, recordRDD);
 
@@ -301,6 +301,8 @@ public class SparkHoodieBloomIndex<T extends HoodieRecordPayload> extends SparkH
         recordRDD.mapToPair(record -> new Tuple2<>(record.getKey(), record));
     // Here as the recordRDD might have more data than rowKeyRDD (some rowKeys' fileId is null),
     // so we do left outer join.
+    // 先把最原始的记录进行一次变换（key-->record,方便后续进行left join操作），
+    // 然后将变换的记录（所有的record）与之前已经查找的记录（key已经存在的record）进行一次左外连接就完成了记录位置的回推操作
     return keyRecordPairRDD.leftOuterJoin(keyFilenamePairRDD).values()
         .map(v1 -> HoodieIndexUtils.getTaggedRecord(v1._1, Option.ofNullable(v1._2.orNull())));
   }

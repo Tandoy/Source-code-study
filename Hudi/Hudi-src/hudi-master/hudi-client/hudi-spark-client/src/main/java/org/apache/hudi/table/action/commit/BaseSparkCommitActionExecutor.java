@@ -109,12 +109,16 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
     }
   }
 
+  /**
+   *Hudi进行upsert主方法入口
+   */
   @Override
   public HoodieWriteMetadata<JavaRDD<WriteStatus>> execute(JavaRDD<HoodieRecord<T>> inputRecordsRDD) {
     HoodieWriteMetadata<JavaRDD<WriteStatus>> result = new HoodieWriteMetadata<>();
     // Cache the tagged records, so we don't end up computing both
     // TODO: Consistent contract in HoodieWriteClient regarding preppedRecord storage level handling
     if (inputRecordsRDD.getStorageLevel() == StorageLevel.NONE()) {
+      // 默认内存缓存机制
       inputRecordsRDD.persist(StorageLevel.MEMORY_AND_DISK_SER());
     } else {
       LOG.info("RDD PreppedRecords was persisted at: " + inputRecordsRDD.getStorageLevel());
