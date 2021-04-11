@@ -133,13 +133,16 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
     }
 
     // handle records update with clustering
+    // 若record文件分布在集群中，则在uodate或者insert之前需要进行check
     JavaRDD<HoodieRecord<T>> inputRecordsRDDWithClusteringUpdate = clusteringHandleUpdate(inputRecordsRDD);
 
     // partition using the insert partitioner
+    // 进行record的upsert
     final Partitioner partitioner = getPartitioner(profile);
     JavaRDD<HoodieRecord<T>> partitionedRecords = partition(inputRecordsRDDWithClusteringUpdate, partitioner);
     JavaRDD<WriteStatus> writeStatusRDD = partitionedRecords.mapPartitionsWithIndex((partition, recordItr) -> {
       if (WriteOperationType.isChangingRecords(operationType)) {
+        // 首先根据分区号获取到对应的桶信息，然后分别处理INSERT和UPDATE不同场景
         return handleUpsertPartition(instantTime, partition, recordItr, partitioner);
       } else {
         return handleInsertPartition(instantTime, partition, recordItr, partitioner);
@@ -272,12 +275,17 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
     return Collections.emptyMap();
   }
 
+  /**
+   *首先根据分区号获取到对应的桶信息，然后分别处理INSERT和UPDATE不同场景
+   */
   @SuppressWarnings("unchecked")
   protected Iterator<List<WriteStatus>> handleUpsertPartition(String instantTime, Integer partition, Iterator recordItr,
                                                               Partitioner partitioner) {
     UpsertPartitioner upsertPartitioner = (UpsertPartitioner) partitioner;
+    // 1.首先根据分区号获取到对应的桶信息
     BucketInfo binfo = upsertPartitioner.getBucketInfo(partition);
     BucketType btype = binfo.bucketType;
+    // 2.然后分别处理INSERT和UPDATE不同场景
     try {
       if (btype.equals(BucketType.INSERT)) {
         return handleInsert(binfo.fileIdPrefix, recordItr);
@@ -362,6 +370,7 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
   public Iterator<List<WriteStatus>> handleInsert(String idPfx, Iterator<HoodieRecord<T>> recordItr)
       throws Exception {
     // This is needed since sometimes some buckets are never picked in getPartition() and end up with 0 records
+    // 如果分区无记录，则直接返回空迭代器，否则会创建一个迭代器进行处理。
     if (!recordItr.hasNext()) {
       LOG.info("Empty partition");
       return Collections.singletonList((List<WriteStatus>) Collections.EMPTY_LIST).iterator();

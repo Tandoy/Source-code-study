@@ -98,7 +98,9 @@ public class UpsertPartitioner<T extends HoodieRecordPayload<T>> extends Partiti
     this.profile = profile;
     this.table = table;
     this.config = config;
+    // 更新：生成UPDATE类型的桶信息
     assignUpdates(profile);
+    // 插入：
     assignInserts(profile, context);
 
     LOG.info("Total Buckets :" + totalBuckets + ", buckets info => " + bucketInfoMap + ", \n"
@@ -156,7 +158,9 @@ public class UpsertPartitioner<T extends HoodieRecordPayload<T>> extends Partiti
 
   private void assignInserts(WorkloadProfile profile, HoodieEngineContext context) {
     // for new inserts, compute buckets depending on how many records we have for each partition
+    // 1.获取当前要插入的record所涉及的partition
     Set<String> partitionPaths = profile.getPartitionPaths();
+    // 2.计算当前record大小
     long averageRecordSize =
         averageBytesPerRecord(table.getMetaClient().getActiveTimeline().getCommitTimeline().filterCompletedInstants(),
             config);
@@ -170,7 +174,7 @@ public class UpsertPartitioner<T extends HoodieRecordPayload<T>> extends Partiti
     for (String partitionPath : partitionPaths) {
       WorkloadStat pStat = profile.getWorkloadStat(partitionPath);
       if (pStat.getNumInserts() > 0) {
-
+        // 3.record需要插入的每个分区下所有小数据文件
         List<SmallFile> smallFiles =
             filterSmallFilesInClustering(partitionPathToPendingClusteringFileGroupsId.getOrDefault(partitionPath, Collections.emptySet()),
                 partitionSmallFilesMap.get(partitionPath));
@@ -185,15 +189,19 @@ public class UpsertPartitioner<T extends HoodieRecordPayload<T>> extends Partiti
 
         // first try packing this into one of the smallFiles
         for (SmallFile smallFile : smallFiles) {
+          // 4.计算该小文件中还可插入多少条记录
           long recordsToAppend = Math.min((config.getParquetMaxFileSize() - smallFile.sizeBytes) / averageRecordSize,
               totalUnassignedInserts);
+          // 5.优先插入小文件，对于剩余的记录则写入新文件
           if (recordsToAppend > 0 && totalUnassignedInserts > 0) {
             // create a new bucket or re-use an existing bucket
             int bucket;
             if (updateLocationToBucket.containsKey(smallFile.location.getFileId())) {
+              // re-use an existing bucket
               bucket = updateLocationToBucket.get(smallFile.location.getFileId());
               LOG.info("Assigning " + recordsToAppend + " inserts to existing update bucket " + bucket);
             } else {
+              // create a new bucket
               bucket = addUpdateBucket(partitionPath, smallFile.location.getFileId());
               LOG.info("Assigning " + recordsToAppend + " inserts to new update bucket " + bucket);
             }

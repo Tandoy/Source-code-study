@@ -108,6 +108,11 @@ public class HoodieCreateHandle<T extends HoodieRecordPayload, I, K, O> extends 
   /**
    * Perform the actual writing of the given record into the backing file.
    */
+  /**
+   *对于值存在的记录，则表示插入，写入数据文件，然后释放记录的内容，当然在调用该write方法写入之前，
+   * 需要先判断该文件还能不能写入（当前文件大小是否大于配置的最大数据文件大小和分区路径是否一致），
+   * 若不能写入，则会在原来FileId上加从0开始的递增序列以生成新文件写入
+   */
   @Override
   public void write(HoodieRecord record, Option<IndexedRecord> avroRecord) {
     Option recordMetadata = record.getData().getMetadata();

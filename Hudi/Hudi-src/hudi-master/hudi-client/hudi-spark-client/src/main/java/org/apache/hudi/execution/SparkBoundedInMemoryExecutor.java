@@ -31,6 +31,12 @@ import org.apache.spark.TaskContext$;
 import java.util.Iterator;
 import java.util.function.Function;
 
+/**
+ *不管是对于INSERT还是UPDATE，
+ * 其都会借助BoundedInMemoryExecutor来转发对记录的处理（涉及生产者-消费者-队列模型，后续会单独分析）
+ */
+
+// TODO 涉及生产者-消费者-队列模型，后续会单独分析
 public class SparkBoundedInMemoryExecutor<I, O, E> extends BoundedInMemoryExecutor<I, O, E> {
 
   // Need to set current spark thread's TaskContext into newly launched thread so that new thread can access

@@ -86,6 +86,13 @@ import java.util.Set;
  *
  * </p>
  */
+/**
+ * 如果旧记录（文件中的旧记录）在新纪录（新写入的记录）中存在，
+ * 将旧记录与新纪录合并（合并策略可以自定义实现，默认新记录覆盖旧记录），
+ * 合并后再写入新文件（与原来FileId相同，但是commitTime不同，commitTime越大，文件越新），
+ * 如果旧记录不存在，那么需要复制旧记录，然后写入新文件中。这样便完成了文件中已存在记录的更新和文件中未存在记录的复制，
+ * 保证无记录丢失
+ */
 public class HoodieMergeHandle<T extends HoodieRecordPayload, I, K, O> extends HoodieWriteHandle<T, I, K, O> {
 
   private static final Logger LOG = LogManager.getLogger(HoodieMergeHandle.class);
