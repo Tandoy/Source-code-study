@@ -30,6 +30,7 @@ public abstract class BoundedInMemoryQueueConsumer<I, O> {
    *
    * @param queue In Memory bounded queue
    */
+  // 只要队列中还有记录，就可以获取该记录，然后调用不同BoundedInMemoryQueueConsumer子类的consumeOneRecord进行更新插入处理。
   public O consume(BoundedInMemoryQueue<?, I> queue) throws Exception {
     Iterator<I> iterator = queue.iterator();
 

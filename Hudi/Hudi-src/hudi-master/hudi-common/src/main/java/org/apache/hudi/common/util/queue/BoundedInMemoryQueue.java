@@ -146,6 +146,11 @@ public class BoundedInMemoryQueue<I, O> implements Iterable<O> {
    *
    * @param payload Payload to size
    */
+  /**
+   *首先看是否已经达到采样频率，然后计算新的记录平均大小和限流速率，
+   * 如果新的限流速率大于当前速率，则可释放一些许可（供阻塞的生产者获取后继续生产），否则需要获取（回收）一些许可（许可变少后生产速率自然就降低了）。
+   * 该操作可根据采样的记录大小动态调节速率，不至于在记录负载太大和记录负载太小时，放入同等个数，从而起到动态调节作用。
+   */
   private void adjustBufferSizeIfNeeded(final O payload) throws InterruptedException {
     if (this.samplingRecordCounter.incrementAndGet() % RECORD_SAMPLING_RATE != 0) {
       return;
@@ -174,6 +179,8 @@ public class BoundedInMemoryQueue<I, O> implements Iterable<O> {
    *
    * @param t Item to be queueed
    */
+
+  // insert record into queue
   public void insertRecord(I t) throws Exception {
     // If already closed, throw exception
     if (isWriteDone.get()) {
@@ -182,12 +189,13 @@ public class BoundedInMemoryQueue<I, O> implements Iterable<O> {
 
     // We need to stop queueing if queue-reader has failed and exited.
     throwExceptionIfFailed();
-
+    // 它指示要缓存的记录数。我们将使用采样记录的平均大小确定我们应该缓存多少记录，并相应地更改（增加/减少）许可
     rateLimiter.acquire();
     // We are retrieving insert value in the record queueing thread to offload computation
     // around schema validation
     // and record creation to it.
     final O payload = transformFunction.apply(t);
+    // 获取记录的负载以便调整队列
     adjustBufferSizeIfNeeded(payload);
     queue.put(Option.of(payload));
   }
@@ -208,6 +216,7 @@ public class BoundedInMemoryQueue<I, O> implements Iterable<O> {
       return Option.empty();
     }
 
+    // 首先会释放一个许可，然后判断是否还可以读取记录（还在生产或者停止生产但队列不为空都可读取），然后从内部队列获取记录或返回
     rateLimiter.release();
     Option<O> newRecord = Option.empty();
     while (expectMoreRecords()) {

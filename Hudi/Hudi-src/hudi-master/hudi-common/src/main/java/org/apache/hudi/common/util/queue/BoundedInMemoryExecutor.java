@@ -42,6 +42,21 @@ import java.util.stream.Collectors;
  * class takes as input the size limit, queue producer(s), consumer and transformer and exposes API to orchestrate
  * concurrent execution of these actors communicating through a central bounded queue
  */
+
+/**
+ *生产者-消费者模型用于解耦生产者与消费者，平衡两者之间的能力不平衡，
+ * 该模型广泛应用于各个系统中，Hudi也使用了该模型控制对记录的处理，
+ * 即记录会被生产者生产至队列中，然后由消费者从队列中消费，更具体一点，
+ * 对于更新操作，生产者会将文件中老的记录放入队列中等待消费者消费，消费后交由HoodieMergeHandle处理；
+ * 对于插入操作，生产者会将新记录放入队列中等待消费者消费，消费后交由HandleCreateHandle处理。
+ */
+
+/**
+ *Hudi采用了生产者-消费者模型来控制记录的处理，
+ * 与传统多生产者-多消费者模型不同的是，Hudi现在只支持多生产者-单消费者模型，单消费者意味着Hudi暂时不支持文件的并发写入。
+ * 而对于生产消费的队列的实现，Hudi并未仅仅只是基于LinkedBlockingQueue，而是采用了更精细化的速率控制，
+ * 保证速率会随着记录负载大小的变化和配置的队列缓存大小而动态变化，这也降低了系统发生OOM的概率。
+ */
 public class BoundedInMemoryExecutor<I, O, E> {
 
   private static final Logger LOG = LogManager.getLogger(BoundedInMemoryExecutor.class);
@@ -82,13 +97,17 @@ public class BoundedInMemoryExecutor<I, O, E> {
    */
   public ExecutorCompletionService<Boolean> startProducers() {
     // Latch to control when and which producer thread will close the queue
+    // 协调生产者线程与消费者线程的退出动作
     final CountDownLatch latch = new CountDownLatch(producers.size());
     final ExecutorCompletionService<Boolean> completionService =
         new ExecutorCompletionService<Boolean>(executorService);
+    // 每个生产者
     producers.stream().map(producer -> {
       return completionService.submit(() -> {
         try {
+          // 生产前相关处理
           preExecute();
+          // 插入更新
           producer.produce(queue);
         } catch (Exception e) {
           LOG.error("error producing records", e);
@@ -132,10 +151,14 @@ public class BoundedInMemoryExecutor<I, O, E> {
 
   /**
    * Main API to run both production and consumption.
+   * 开始记录的处理
+   * 启动所有生产者和单个消费者进行处理。
    */
   public E execute() {
     try {
+      // 启动所有的生产者
       ExecutorCompletionService<Boolean> producerService = startProducers();
+      // 启动单个消费者
       Future<E> future = startConsumer();
       // Wait for consumer to be done
       return future.get();
