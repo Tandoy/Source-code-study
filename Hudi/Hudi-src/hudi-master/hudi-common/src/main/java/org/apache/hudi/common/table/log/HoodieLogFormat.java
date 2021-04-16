@@ -41,6 +41,8 @@ import java.util.List;
  * Binary Format Command Block - Specific commands like ROLLBACK_PREVIOUS-BLOCK - Tombstone for the previously written
  * block Delete Block - List of keys to delete - tombstone for keys
  */
+
+// 在 MergeOnRead存储类型时，对于记录的更新会写入log文件，对于log文件的格式，hudi进行了一些优化和规定
 public interface HoodieLogFormat {
 
   /**
@@ -59,6 +61,8 @@ public interface HoodieLogFormat {
   /**
    * Writer interface to allow appending block to this file format.
    */
+
+  // 写日志文件
   interface Writer extends Closeable {
 
     /**
@@ -70,6 +74,10 @@ public interface HoodieLogFormat {
      * Append Block to a log file.
      * @return {@link AppendResult} containing result of the append.
      */
+
+    // 对于 Reader和 Writer，都是以 HoodieLogBlock为单位进行读写，
+    // HoodieLogBlock定义了日志文件块，其包含四种实现，如表示数据的 HoodieAvroDataBlock，表示命令控制的 HoodieCommandBlock，
+    // 表示被损坏的 HoodieCorruptBlock以及表示删除的 HoodieDeleteBlock
     AppendResult appendBlock(HoodieLogBlock block) throws IOException, InterruptedException;
 
     /**
@@ -84,6 +92,8 @@ public interface HoodieLogFormat {
   /**
    * Reader interface which is an Iterator of HoodieLogBlock.
    */
+
+  // 读日志文件
   interface Reader extends Closeable, Iterator<HoodieLogBlock> {
 
     /**
@@ -285,6 +295,8 @@ public interface HoodieLogFormat {
    * A set of feature flags associated with a log format. Versions are changed when the log format changes. TODO(na) -
    * Implement policies around major/minor versions
    */
+
+  // 记录日志文件版本信息
   abstract class LogFormatVersion {
 
     private final int version;

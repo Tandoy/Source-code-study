@@ -68,6 +68,13 @@ import java.util.stream.Collectors;
 /**
  * IO Operation to append data onto an existing file.
  */
+
+/**
+ *对于日志文件的写入，Hudi采用基于 HoodieLogBlock为单元的写入粒度，
+ * 其策略是先将记录缓存至内存，然后再批量构造成 Block后写入日志文件，
+ * 而对于 Block的头部、实际内容、尾部的写入采用了指定的顺序，并且采用了自动滚动日志文件的方式写入（当日志文件大小达到指定配置大小时自动滚动到下一个文件继续写入）
+ */
+// 在处理 update时，如果日志文件不支持索引或者文件不是小文件，则会使用 HoodieApppendHandle#doAppend处理
 public class HoodieAppendHandle<T extends HoodieRecordPayload, I, K, O> extends HoodieWriteHandle<T, I, K, O> {
 
   private static final Logger LOG = LogManager.getLogger(HoodieAppendHandle.class);
@@ -122,6 +129,7 @@ public class HoodieAppendHandle<T extends HoodieRecordPayload, I, K, O> extends 
     this(config, instantTime, hoodieTable, partitionPath, fileId, null, sparkTaskContextSupplier);
   }
 
+  // 初始化
   private void init(HoodieRecord record) {
     if (doInit) {
       // extract some information from the first record
@@ -166,7 +174,7 @@ public class HoodieAppendHandle<T extends HoodieRecordPayload, I, K, O> extends 
         // writers.
         // https://issues.apache.org/jira/browse/HUDI-1517
         createMarkerFile(partitionPath, FSUtils.makeDataFileName(baseInstantTime, writeToken, fileId, hoodieTable.getBaseFileExtension()));
-
+        // 创建HoodieLogFormatWriter
         this.writer = createLogWriter(fileSlice, baseInstantTime);
       } catch (Exception e) {
         LOG.error("Error in update task at commit " + instantTime, e);
@@ -322,11 +330,16 @@ public class HoodieAppendHandle<T extends HoodieRecordPayload, I, K, O> extends 
     timer.startTimer();
   }
 
+  // 现在只有HDFS、MAPRFS、IGNITE、VIEWFS文件系统支持Append，若支持，则接着Append，若不支持，则滚动到下个新文件写入；若不存在，则直接创建新文件写入。
   public void doAppend() {
     while (recordItr.hasNext()) {
+      // 1.获取记录
       HoodieRecord record = recordItr.next();
+      // 2.初始化
       init(record);
+      // 3.刷写磁盘
       flushToDiskIfRequired(record);
+      // 4.写入缓存
       writeToBuffer(record);
     }
     appendDataAndDeleteBlocks(header);
@@ -456,13 +469,17 @@ public class HoodieAppendHandle<T extends HoodieRecordPayload, I, K, O> extends 
    */
   private void flushToDiskIfRequired(HoodieRecord record) {
     // Append if max number of records reached to achieve block size
+    // 当前记录条数大于等于block块可以存的最大记录条数
     if (numberOfRecords >= (int) (maxBlockSize / averageRecordSize)) {
       // Recompute averageRecordSize before writing a new block and update existing value with
       // avg of new and old
       LOG.info("AvgRecordSize => " + averageRecordSize);
+      // 重新计算记录的平均大小
       averageRecordSize = (averageRecordSize + sizeEstimator.sizeEstimate(record)) / 2;
+      // append写入
       appendDataAndDeleteBlocks(header);
       estimatedNumberOfBytesWritten += averageRecordSize * numberOfRecords;
+      // 归零records
       numberOfRecords = 0;
     }
   }
