@@ -502,14 +502,18 @@ public abstract class AbstractHoodieWriteClient<T extends HoodieRecordPayload, I
    * @param user - User creating the savepoint
    * @param comment - Comment for the savepoint
    */
+  // 基于timeline中最后一次commit，用户进行savepoint
   public void savepoint(String user, String comment) {
+    // 1.创建hudi table
     HoodieTable<T, I, K, O> table = createTable(config, hadoopConf);
+    // 2.对当前table进行timeline判断
     if (table.getCompletedCommitsTimeline().empty()) {
       throw new HoodieSavepointException("Could not savepoint. Commit timeline is empty");
     }
-
+    // 3.获取最后一次commit时间戳
     String latestCommit = table.getCompletedCommitsTimeline().lastInstant().get().getTimestamp();
     LOG.info("Savepointing latest commit " + latestCommit);
+    // 4.进行savepoint
     savepoint(latestCommit, user, comment);
   }
 
@@ -555,8 +559,11 @@ public abstract class AbstractHoodieWriteClient<T extends HoodieRecordPayload, I
    */
   public void restoreToSavepoint(String savepointTime) {
     HoodieTable<T, I, K, O> table = createTable(config, hadoopConf);
+    // check savepoint instant
     SavepointHelpers.validateSavepointPresence(table, savepointTime);
+    // 恢复至指定savepoint的instant
     restoreToInstant(savepointTime);
+    // check restore是否成功
     SavepointHelpers.validateSavepointRestore(table, savepointTime);
   }
 

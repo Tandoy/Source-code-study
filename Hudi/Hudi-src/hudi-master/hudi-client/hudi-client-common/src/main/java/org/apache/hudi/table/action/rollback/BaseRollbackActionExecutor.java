@@ -99,6 +99,7 @@ public abstract class BaseRollbackActionExecutor<T extends HoodieRecordPayload, 
   @Override
   public HoodieRollbackMetadata execute() {
     HoodieTimer rollbackTimer = new HoodieTimer().startTimer();
+    // 真正执行rollback
     List<HoodieRollbackStat> stats = doRollbackAndGetStats();
     HoodieRollbackMetadata rollbackMetadata = TimelineMetadataUtils.convertRollbackMetadata(
         instantTime,
@@ -106,6 +107,7 @@ public abstract class BaseRollbackActionExecutor<T extends HoodieRecordPayload, 
         Collections.singletonList(instantToRollback),
         stats);
     if (!skipTimelinePublish) {
+      // 完成rollback后的相关处理
       finishRollback(rollbackMetadata);
     }
 
@@ -171,11 +173,14 @@ public abstract class BaseRollbackActionExecutor<T extends HoodieRecordPayload, 
   }
 
   public List<HoodieRollbackStat> doRollbackAndGetStats() {
+    // 获取commit time
     final String instantTimeToRollback = instantToRollback.getTimestamp();
     final boolean isPendingCompaction = Objects.equals(HoodieTimeline.COMPACTION_ACTION, instantToRollback.getAction())
         && !instantToRollback.isCompleted();
+    // 获取所有的已完成的savepoint的timeline，若commit已经rollback则不允许回滚savepoint
     validateSavepointRollbacks();
     if (!isPendingCompaction) {
+      // 保证严格按照从高到低顺序回滚
       validateRollbackCommitSequence();
     }
 
@@ -183,6 +188,7 @@ public abstract class BaseRollbackActionExecutor<T extends HoodieRecordPayload, 
       List<HoodieRollbackStat> stats = executeRollback();
       LOG.info("Rolled back inflight instant " + instantTimeToRollback);
       if (!isPendingCompaction) {
+        // 回滚索引
         rollBackIndex();
       }
       return stats;

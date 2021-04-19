@@ -56,6 +56,7 @@ public abstract class BaseRestoreActionExecutor<T extends HoodieRecordPayload, I
     this.restoreInstantTime = restoreInstantTime;
   }
 
+  // 执行回滚savepoint
   @Override
   public HoodieRestoreMetadata execute() {
     HoodieTimer restoreTimer = new HoodieTimer();
@@ -70,6 +71,7 @@ public abstract class BaseRestoreActionExecutor<T extends HoodieRecordPayload, I
     Map<String, List<HoodieRollbackMetadata>> instantToMetadata = new HashMap<>();
     table.getActiveTimeline().createNewInstant(new HoodieInstant(true, HoodieTimeline.RESTORE_ACTION, instantTime));
     instantsToRollback.forEach(instant -> {
+      // 回滚，从高到低
       instantToMetadata.put(instant.getTimestamp(), Collections.singletonList(rollbackInstant(instant)));
       LOG.info("Deleted instant " + instant);
     });

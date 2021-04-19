@@ -62,6 +62,7 @@ public class SparkCopyOnWriteRestoreActionExecutor<T extends HoodieRecordPayload
         && !instantToRollback.getAction().equals(HoodieTimeline.REPLACE_COMMIT_ACTION)) {
       throw new HoodieRollbackException("Unsupported action in rollback instant:" + instantToRollback);
     }
+    // 真正执行rollback操作
     return rollbackActionExecutor.execute();
   }
 }

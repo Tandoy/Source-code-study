@@ -66,43 +66,54 @@ public class SavepointActionExecutor<T extends HoodieRecordPayload, I, K, O> ext
   @Override
   public HoodieSavepointMetadata execute() {
     if (table.getMetaClient().getTableType() == HoodieTableType.MERGE_ON_READ) {
+      // MERGE_ON_READ类型表不支持savepoint
       throw new UnsupportedOperationException("Savepointing is not supported or MergeOnRead table types");
     }
+      // 获取已完成的clean的最后一个instant
     Option<HoodieInstant> cleanInstant = table.getCompletedCleanTimeline().lastInstant();
     HoodieInstant commitInstant = new HoodieInstant(false, HoodieTimeline.COMMIT_ACTION, instantTime);
     if (!table.getCompletedCommitsTimeline().containsInstant(commitInstant)) {
+      // 当前instant不存在与已经完成clean的timeline中
       throw new HoodieSavepointException("Could not savepoint non-existing commit " + commitInstant);
     }
 
     try {
       // Check the last commit that was not cleaned and check if savepoint time is > that commit
       String lastCommitRetained;
-      if (cleanInstant.isPresent()) {
+      if (cleanInstant.isPresent()) { // 若clean instant存在
+        // 进行相关反序列化
         HoodieCleanMetadata cleanMetadata = TimelineMetadataUtils
             .deserializeHoodieCleanMetadata(table.getActiveTimeline().getInstantDetails(cleanInstant.get()).get());
         lastCommitRetained = cleanMetadata.getEarliestCommitToRetain();
       } else {
+        // 获取最早完成的commit时间
         lastCommitRetained = table.getCompletedCommitsTimeline().firstInstant().get().getTimestamp();
       }
 
       // Cannot allow savepoint time on a commit that could have been cleaned
+      // savepoint的时间必须大于/等于最早保留的commit时间
       ValidationUtils.checkArgument(HoodieTimeline.compareTimestamps(instantTime, HoodieTimeline.GREATER_THAN_OR_EQUALS, lastCommitRetained),
           "Could not savepoint commit " + instantTime + " as this is beyond the lookup window " + lastCommitRetained);
 
       context.setJobStatus(this.getClass().getSimpleName(), "Collecting latest files for savepoint " + instantTime);
+      // 获取table所有分区
       List<String> partitions = FSUtils.getAllPartitionPaths(context, config.getMetadataConfig(), table.getMetaClient().getBasePath());
       Map<String, List<String>> latestFilesMap = context.mapToPair(partitions, partitionPath -> {
         // Scan all partitions files with this commit time
         LOG.info("Collecting latest files in partition path " + partitionPath);
         TableFileSystemView.BaseFileOnlyView view = table.getBaseFileOnlyView();
+        // 获取该partition下所有小于commitTime的文件
         List<String> latestFiles = view.getLatestBaseFilesBeforeOrOn(partitionPath, instantTime)
             .map(HoodieBaseFile::getFileName).collect(Collectors.toList());
         return new ImmutablePair<>(partitionPath, latestFiles);
       }, null);
+      // 转化为savepoint metadata
       HoodieSavepointMetadata metadata = TimelineMetadataUtils.convertSavepointMetadata(user, comment, latestFilesMap);
       // Nothing to save in the savepoint
+      // 创建savepoint类型的instant，在meta目录下会创建inflight类型文件
       table.getActiveTimeline().createNewInstant(
           new HoodieInstant(true, HoodieTimeline.SAVEPOINT_ACTION, instantTime));
+      // 标记为complete状态，并将savepoint metadata存入文件
       table.getActiveTimeline()
           .saveAsComplete(new HoodieInstant(true, HoodieTimeline.SAVEPOINT_ACTION, instantTime),
               TimelineMetadataUtils.serializeSavepointMetadata(metadata));

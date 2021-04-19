@@ -63,6 +63,7 @@ public class SavepointHelpers {
 
   public static void validateSavepointPresence(HoodieTable table, String savepointTime) {
     HoodieInstant savePoint = new HoodieInstant(false, HoodieTimeline.SAVEPOINT_ACTION, savepointTime);
+    // 检查需要 savePoint instant是否存在
     boolean isSavepointPresent = table.getCompletedSavepointTimeline().containsInstant(savePoint);
     if (!isSavepointPresent) {
       throw new HoodieRollbackException("No savepoint for instantTime " + savepointTime);

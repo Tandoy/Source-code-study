@@ -239,6 +239,7 @@ public class HoodieSparkCopyOnWriteTable<T extends HoodieRecordPayload> extends 
 
   @Override
   public HoodieSavepointMetadata savepoint(HoodieEngineContext context, String instantToSavepoint, String user, String comment) {
+    // 创建savepoint
     return new SavepointActionExecutor(context, config, this, instantToSavepoint, user, comment).execute();
   }
 
