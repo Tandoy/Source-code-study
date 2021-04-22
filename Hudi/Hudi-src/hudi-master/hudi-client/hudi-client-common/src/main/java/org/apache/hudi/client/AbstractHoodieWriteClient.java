@@ -974,7 +974,10 @@ public abstract class AbstractHoodieWriteClient<T extends HoodieRecordPayload, I
     return clusteringInstantOpt;
   }
 
+  // 完成实际的回滚
   protected void rollbackInflightClustering(HoodieInstant inflightInstant, HoodieTable<T, I, K, O> table) {
+    // 对于MOR和COW不同类型有不同实现
+    // 生成新的rollback时间 inflight状态
     table.rollback(context, HoodieActiveTimeline.createNewInstantTime(), inflightInstant, false);
     table.getActiveTimeline().revertReplaceCommitInflightToRequested(inflightInstant);
   }
