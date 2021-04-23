@@ -366,6 +366,20 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
     }
   }
 
+  /**
+   *为 COW类型时，对于记录的 upsert，其步骤如下：
+   * 给记录打标签，即记录存在于哪些文件中，用于判断是进行更新还是插入操作。
+   * 创建分区器用于重新分区。会创建多个 bucket，其对应分区总数，每个 bucket对应一个 FileId（已存在文件ID或新文件ID）和类型（ INSERT、 UPDATE）。对于 INSERT操作，在查找分区录下所有的小文件后，优先将记录插入到这些小文件中，若还剩余记录，则插入新文件。
+   * 重新进行分区，不同分区获取对应的 bucket后，则可知对该分区上的记录进行何种操作（由 bucket类型决定），对于 UPDATE操作，则合并老记录后写入新的parquet文件；对于 INSERT操作，则直接写入新的parquet文件。
+   * 为 MOR类型时，对于记录的 upsert，总体步骤与上述类似，只是创建的分区器类型为 HoodieMergeOnReadTable.MergeOnReadUpsertPartitioner，其为 HoodieCopyOnWriteTable.UpsertPartitioner子类，两者在查找小文件时的表现不同。
+   *
+   *
+   *
+   *
+   * 对于 MOR类型存储而言，数据写入及更新流程与 COW大致相同；
+   * 但对于 MOR类型而言，在 insert时，会根据是否支持索引日志文件来决定将记录写入log增量日志文件还是parquet数据文件（支持则写入log增量文件，否则写入parquet数据文件）；
+   * 在 update时，其也会根据是否支持直接写入日志文件和更新的文件是否为小文件来决定是否合并新老记录写入parquet数据或者将新记录写入log增量日志文件中（不支持并且为小文件，则直接更新旧的parquet文件记录并写入新的parquet数据文件，否则写入log增量文件中）。
+   */
   @Override
   public Iterator<List<WriteStatus>> handleInsert(String idPfx, Iterator<HoodieRecord<T>> recordItr)
       throws Exception {
