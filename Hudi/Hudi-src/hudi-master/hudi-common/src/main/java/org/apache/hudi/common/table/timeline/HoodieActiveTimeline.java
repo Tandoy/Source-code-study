@@ -257,6 +257,7 @@ public class HoodieActiveTimeline extends HoodieDefaultTimeline {
    * @param requestedInstant Requested instant
    * @return inflight instant
    */
+  // 对需要compact的instant先进行一些检查，1. 如果有inflight状态的写入，那么最早的instant的时间一定大于正在进行压缩的时间；2. commit、deltacommit、compaction类型的instant的时间一定小于正在进行压缩的时间
   public HoodieInstant transitionCompactionRequestedToInflight(HoodieInstant requestedInstant) {
     ValidationUtils.checkArgument(requestedInstant.getAction().equals(HoodieTimeline.COMPACTION_ACTION));
     ValidationUtils.checkArgument(requestedInstant.isRequested());

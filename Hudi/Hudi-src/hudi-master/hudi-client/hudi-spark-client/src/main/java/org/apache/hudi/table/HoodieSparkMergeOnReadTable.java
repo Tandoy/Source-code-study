@@ -118,6 +118,14 @@ public class HoodieSparkMergeOnReadTable<T extends HoodieRecordPayload> extends 
         this, instantTime, preppedRecords, userDefinedBulkInsertPartitioner).execute();
   }
 
+  /**
+   *compaction时只存在于 MergeOnRead存储类型时的操作，
+   * 其首先会遍历各分区下最新的parquet数据文件和其对应的log日志文件（ FileSlice），
+   * 然后生成 HoodieCompactionPlan(每个FileSlice对应一个HoodieCompactionOperation)并将其序列化至文件中，
+   * 然后在执行 compaction操作时会将其从文件中反序列化，
+   * 然后从 HoodieCompactionPlan中获取 HoodieCompactionOperation并进行压缩，即会构建一个用于迭代log增量日志文件的迭代器，
+   * 然后与旧的parquet数据文件进行合并或写入parquet数据文件，完成后会将统计信息写入文件，而 completed的 compaction操作在 timeline上表现为 commit。
+   */
   @Override
   public Option<HoodieCompactionPlan> scheduleCompaction(HoodieEngineContext context, String instantTime, Option<Map<String, String>> extraMetadata) {
     BaseScheduleCompactionActionExecutor scheduleCompactionExecutor = new SparkScheduleCompactionActionExecutor(

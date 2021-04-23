@@ -726,8 +726,12 @@ public abstract class AbstractHoodieWriteClient<T extends HoodieRecordPayload, I
    * Schedules a new compaction instant.
    * @param extraMetadata Extra Metadata to be stored
    */
+  // 压缩( compaction)用于在 MergeOnRead存储类型时将基于行的log日志文件转化为parquet列式数据文件，用于加快记录的查找。
+  // 用户可通过 hudi-cli提供的命令行显示触发 compaction或者在使用 HoodieDeltaStreamer将上游（Kafka/DFS）数据写入 hudi数据集时进行相应配置，然后由系统自动进行 compaction操作。
   public Option<String> scheduleCompaction(Option<Map<String, String>> extraMetadata) throws HoodieIOException {
+    // 1.创建新的instanttime,单调递增
     String instantTime = HoodieActiveTimeline.createNewInstantTime();
+    // 2.生成 HoodieCompactionPlan
     return scheduleCompactionAtInstant(instantTime, extraMetadata) ? Option.of(instantTime) : Option.empty();
   }
 
@@ -929,6 +933,7 @@ public abstract class AbstractHoodieWriteClient<T extends HoodieRecordPayload, I
   public Option<String> scheduleTableService(String instantTime, Option<Map<String, String>> extraMetadata,
                                              TableServiceType tableServiceType) {
     // A lock is required to guard against race conditions between an on-going writer and scheduling a table service.
+    // 加锁 write/compaction
     try {
       this.txnManager.beginTransaction(Option.of(new HoodieInstant(HoodieInstant.State.REQUESTED,
           tableServiceType.getAction(), instantTime)), Option.empty());
@@ -949,6 +954,7 @@ public abstract class AbstractHoodieWriteClient<T extends HoodieRecordPayload, I
         return clusteringPlan.isPresent() ? Option.of(instantTime) : Option.empty();
       case COMPACT:
         LOG.info("Scheduling compaction at instant time :" + instantTime);
+        // 进行compaction，与upsert、rollback、savepoint等操作相同。最后都调用不同类似引擎以及存储类型（COW/MOR）的ActionExecutor
         Option<HoodieCompactionPlan> compactionPlan = createTable(config, hadoopConf)
             .scheduleCompaction(context, instantTime, extraMetadata);
         return compactionPlan.isPresent() ? Option.of(instantTime) : Option.empty();

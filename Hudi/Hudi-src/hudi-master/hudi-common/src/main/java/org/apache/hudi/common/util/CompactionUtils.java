@@ -141,6 +141,7 @@ public class CompactionUtils {
     }).collect(Collectors.toList());
   }
 
+  // 生成compactionplan
   public static HoodieCompactionPlan getCompactionPlan(HoodieTableMetaClient metaClient, String compactionInstant)
       throws IOException {
     CompactionPlanMigrator migrator = new CompactionPlanMigrator(metaClient);

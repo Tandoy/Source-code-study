@@ -56,23 +56,28 @@ public class SparkRunCompactionActionExecutor<T extends HoodieRecordPayload> ext
 
   @Override
   public HoodieWriteMetadata<JavaRDD<WriteStatus>> execute() {
+    // 1.获取需要compaction的instant
     HoodieInstant instant = HoodieTimeline.getCompactionRequestedInstant(instantTime);
     HoodieTimeline pendingCompactionTimeline = table.getActiveTimeline().filterPendingCompactionTimeline();
+    // 2.进行compaction的instant相关检查
     if (!pendingCompactionTimeline.containsInstant(instant)) {
       throw new IllegalStateException(
           "No Compaction request available at " + instantTime + " to run compaction");
     }
-
+    // 3.创建compaction元数据
     HoodieWriteMetadata<JavaRDD<WriteStatus>> compactionMetadata = new HoodieWriteMetadata<>();
     try {
       HoodieActiveTimeline timeline = table.getActiveTimeline();
+      // 4.生成compact执行计划
       HoodieCompactionPlan compactionPlan =
           CompactionUtils.getCompactionPlan(table.getMetaClient(), instantTime);
       // Mark instant as compaction inflight
+      // 5.先进行一些检查，1. 如果有inflight状态的写入，那么最早的instant的时间一定大于正在进行压缩的时间；2. commit、deltacommit、compaction类型的instant的时间一定小于正在进行压缩的时间
       timeline.transitionCompactionRequestedToInflight(instant);
       table.getMetaClient().reloadActiveTimeline();
 
       HoodieSparkMergeOnReadTableCompactor compactor = new HoodieSparkMergeOnReadTableCompactor();
+      // 6.进行compact
       JavaRDD<WriteStatus> statuses = compactor.compact(context, compactionPlan, table, config, instantTime);
 
       statuses.persist(SparkMemoryUtils.getWriteStatusStorageLevel(config.getProps()));
