@@ -41,6 +41,17 @@ import java.util.stream.Stream;
  * @see HoodieInstant
  * @since 0.3.0
  */
+
+/**
+ * 该接口定义了针对 Instant的不同操作，包括 commit、 deltacommit、 clean、 rollback、 savepoint、 compaction、 restore，以及对这些操作进行过滤的方法以及针对 Instant的状态和操作类型生成不同的文件名的方法
+ * commit：将记录原子写入数据集。
+ * deltacommit ：将一批记录原子写入到 MergeOnRead存储类型的数据集（写入增量日志log文件中）。
+ * clean ：删除数据集中不再需要的旧版本文件。
+ * rollback ：表示当 commit/deltacommit不成功时进行回滚，其会删除在写入过程中产生的部分文件。
+ * savepoint：将某些文件组标记为已保存，以便其不会被删除。在发生灾难需要恢复数据的情况下，它有助于将数据集还原到时间轴上的某个点。
+ * compaction ：将基于行的log日志文件转变成列式parquet数据文件。 compaction在时间轴上表现为特殊提交。
+ * restore：将从某个 savepoint恢复。
+ */
 public interface HoodieTimeline extends Serializable {
 
   String COMMIT_ACTION = "commit";

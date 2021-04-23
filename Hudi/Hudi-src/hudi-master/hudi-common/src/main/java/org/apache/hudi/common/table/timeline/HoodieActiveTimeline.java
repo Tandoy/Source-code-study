@@ -86,6 +86,7 @@ public class HoodieActiveTimeline extends HoodieDefaultTimeline {
    * Returns next instant time that adds N milliseconds in the {@link #COMMIT_FORMATTER} format.
    * Ensures each instant time is atleast 1 second apart since we create instant times at second granularity
    */
+  // 生成下一次提交时间
   public static String createNewInstantTime(long milliseconds) {
     return lastInstantTime.updateAndGet((oldVal) -> {
       String newCommitTime;
