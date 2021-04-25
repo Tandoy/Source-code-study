@@ -34,24 +34,28 @@ public class FileSlice implements Serializable {
   /**
    * File Group Id of the Slice.
    */
+  // 文件组ID
   private HoodieFileGroupId fileGroupId;
 
   /**
    * Point in the timeline, at which the slice was created.
    */
+  // Instant的时间
   private String baseInstantTime;
 
   /**
    * data file, with the compacted data, for this slice.
    */
+  // 数据文件
   private HoodieBaseFile baseFile;
 
   /**
    * List of appendable log files with real time data - Sorted with greater log version first - Always empty for
    * copy_on_write storage.
    */
+  // 日志文件列表，按照更低版本排序，在MOR时存在，COW时为空
   private final TreeSet<HoodieLogFile> logFiles;
-
+  // 一个 FileSlice对应一个数据文件和日志文件列表，并且其包含一个基准时间（数据文件和日志文件都有相同的时间基准）
   public FileSlice(FileSlice fileSlice) {
     this.baseInstantTime = fileSlice.baseInstantTime;
     this.baseFile = fileSlice.baseFile != null ? new HoodieBaseFile(fileSlice.baseFile) : null;
