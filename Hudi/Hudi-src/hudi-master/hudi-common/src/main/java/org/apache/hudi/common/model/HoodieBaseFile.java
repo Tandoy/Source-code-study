@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.FileStatus;
  * Hoodie base file - Represents metadata about Hudi file in DFS.
  * Supports APIs to get Hudi FileId, Commit Time and bootstrap file (if any).
  */
+// 每个数据文件包含了一个文件状态，文件的全路径以及文件的长度。
 public class HoodieBaseFile extends BaseFile {
 
   private Option<BaseFile> bootstrapBaseFile;

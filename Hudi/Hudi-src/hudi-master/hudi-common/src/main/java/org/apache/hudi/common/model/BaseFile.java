@@ -31,10 +31,13 @@ import java.util.Objects;
 public class BaseFile implements Serializable {
 
   private static final long serialVersionUID = 1L;
+  // 文件状态
   private transient FileStatus fileStatus;
+  // 文件全路径
   private final String fullPath;
+  // 文件大小
   private long fileLen;
-
+  // 每个数据文件包含了一个文件状态，文件的全路径以及文件的长度。
   public BaseFile(BaseFile dataFile) {
     this.fileStatus = dataFile.fileStatus;
     this.fullPath = dataFile.fullPath;

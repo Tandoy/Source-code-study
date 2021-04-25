@@ -25,11 +25,11 @@ import java.util.Objects;
  * Unique ID to identify a file-group in a data-set.
  */
 public class HoodieFileGroupId implements Serializable, Comparable<HoodieFileGroupId> {
-
+  // 分区路径
   private final String partitionPath;
-
+  // 文件ID
   private final String fileId;
-
+  // 每个文件组ID由分区路径和文件ID唯一标识，不同的分区或不同的文件ID均属于不同的 HoodieFileGroup
   public HoodieFileGroupId(String partitionPath, String fileId) {
     this.partitionPath = partitionPath;
     this.fileId = fileId;

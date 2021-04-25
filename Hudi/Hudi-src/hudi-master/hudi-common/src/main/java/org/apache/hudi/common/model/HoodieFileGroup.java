@@ -48,18 +48,23 @@ public class HoodieFileGroup implements Serializable {
   /**
    * Slices of files in this group, sorted with greater commit first.
    */
+  // FileSlices，按照提交时间大小排序
   private final TreeMap<String, FileSlice> fileSlices;
 
   /**
    * Timeline, based on which all getter work.
    */
+  // 时间轴
   private final HoodieTimeline timeline;
 
   /**
    * The last completed instant, that acts as a high watermark for all getters.
    */
+  // 上一次完成的Instant，充当水位基准.
   private final Option<HoodieInstant> lastInstant;
 
+  // HoodieFileGroup由 HoodieFileGroupId唯一标识；
+  // 每个 HoodieFileGroup中会包含一个 TreeMap<CommitTime,FileSlice>，按照 CommitTime从大到小排序；为方便操作会保存一个 Timeline，以及最后完成的 Instant。
   public HoodieFileGroup(HoodieFileGroup fileGroup) {
     this.timeline = fileGroup.timeline;
     this.fileGroupId = fileGroup.fileGroupId;

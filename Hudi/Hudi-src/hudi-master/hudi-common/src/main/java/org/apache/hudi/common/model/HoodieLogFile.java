@@ -38,13 +38,17 @@ import java.util.Objects;
 public class HoodieLogFile implements Serializable {
 
   private static final long serialVersionUID = 1L;
+  // 日志文件扩展名
   public static final String DELTA_EXTENSION = ".log";
+  // 日志文件基准版本
   public static final Integer LOGFILE_BASE_VERSION = 1;
-
+  // 文件状态
   private transient FileStatus fileStatus;
+  // 文件路径
   private final String pathStr;
+  // 文件大小
   private long fileLen;
-
+  // 日志文件与数据文件包含信息类似，日志文件的初始化版本为1。
   public HoodieLogFile(HoodieLogFile logFile) {
     this.fileStatus = logFile.fileStatus;
     this.pathStr = logFile.pathStr;
