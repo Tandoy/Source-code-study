@@ -161,34 +161,40 @@ public abstract class AbstractTableFileSystemView implements SyncableFileSystemV
         addPendingCompactionFileSlice);
   }
 
+  // HoodieFileGroup的生成逻辑
   protected List<HoodieFileGroup> buildFileGroups(Stream<HoodieBaseFile> baseFileStream,
       Stream<HoodieLogFile> logFileStream, HoodieTimeline timeline, boolean addPendingCompactionFileSlice) {
+    // 1.获取所有数据文件对应的分区路径、文件ID（相同的分区路径、文件ID会对应数据文件列表）
     Map<Pair<String, String>, List<HoodieBaseFile>> baseFiles =
         baseFileStream.collect(Collectors.groupingBy((baseFile) -> {
           String partitionPathStr = getPartitionPathFromFilePath(baseFile.getPath());
           return Pair.of(partitionPathStr, baseFile.getFileId());
         }));
-
+    // 2.获取所有日志文件对应的分区路径、文件ID（相同的分区路径、文件ID会对应日志文件列表）
     Map<Pair<String, String>, List<HoodieLogFile>> logFiles = logFileStream.collect(Collectors.groupingBy((logFile) -> {
       String partitionPathStr =
           FSUtils.getRelativePartitionPath(new Path(metaClient.getBasePath()), logFile.getPath().getParent());
       return Pair.of(partitionPathStr, logFile.getFileId());
     }));
-
+    // 3.初始化所有的数据文件和日志文件（过滤掉相同的<Partition, FileID>）
     Set<Pair<String, String>> fileIdSet = new HashSet<>(baseFiles.keySet());
     fileIdSet.addAll(logFiles.keySet());
 
     List<HoodieFileGroup> fileGroups = new ArrayList<>();
+    // 4.创建filegroup
     fileIdSet.forEach(pair -> {
+      // 4.1 获取文件ID
       String fileId = pair.getValue();
       HoodieFileGroup group = new HoodieFileGroup(pair.getKey(), fileId, timeline);
       if (baseFiles.containsKey(pair)) {
+        // 4.2 向文件组中添加此数据文件
         baseFiles.get(pair).forEach(group::addBaseFile);
       }
       if (logFiles.containsKey(pair)) {
+        // 4.3 向文件组中添加此日志文件
         logFiles.get(pair).forEach(group::addLogFile);
       }
-
+        // 4.4 添加pending的compaction的FileSlice
       if (addPendingCompactionFileSlice) {
         Option<Pair<String, CompactionOperation>> pendingCompaction =
             getPendingCompactionOperationWithInstant(group.getFileGroupId());
