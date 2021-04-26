@@ -83,6 +83,7 @@ import scala.Tuple2;
 /**
  * Hoodie Index implementation backed by HBase.
  */
+// HBaseIndex也是HoodieIndex的子类实现，其实现了父类的两个核心方法: tagLocation() updateLocation()
 public class SparkHoodieHBaseIndex<T extends HoodieRecordPayload> extends SparkHoodieIndex<T> {
 
   public static final String DEFAULT_SPARK_EXECUTOR_INSTANCES_CONFIG_NAME = "spark.executor.instances";
@@ -205,57 +206,72 @@ public class SparkHoodieHBaseIndex<T extends HoodieRecordPayload> extends SparkH
 
     // `multiGetBatchSize` is intended to be a batch per 100ms. To create a rate limiter that measures
     // operations per second, we need to multiply `multiGetBatchSize` by 10.
+    // 每次取的批次大小
     Integer multiGetBatchSize = config.getHbaseIndexGetBatchSize();
     return (Function2<Integer, Iterator<HoodieRecord<T>>, Iterator<HoodieRecord<T>>>) (partitionNum,
         hoodieRecordIterator) -> {
 
       boolean updatePartitionPath = config.getHbaseIndexUpdatePartitionPath();
+      // 进行限流
       RateLimiter limiter = RateLimiter.create(multiGetBatchSize * 10, TimeUnit.SECONDS);
       // Grab the global HBase connection
+      // 获取HBase连接
       synchronized (SparkHoodieHBaseIndex.class) {
         if (hbaseConnection == null || hbaseConnection.isClosed()) {
           hbaseConnection = getHBaseConnection();
         }
       }
       List<HoodieRecord<T>> taggedRecords = new ArrayList<>();
+      // 从配置中获取HBase索引表
       try (HTable hTable = (HTable) hbaseConnection.getTable(TableName.valueOf(tableName))) {
         List<Get> statements = new ArrayList<>();
         List<HoodieRecord> currentBatchOfRecords = new LinkedList<>();
         // Do the tagging.
+        // 遍历该分区上的记录 循环对record进行位置标记
         while (hoodieRecordIterator.hasNext()) {
           HoodieRecord rec = hoodieRecordIterator.next();
           statements.add(generateStatement(rec.getRecordKey()));
           currentBatchOfRecords.add(rec);
           // iterator till we reach batch size
+          // 遍历完当前分区record & 记录未达到batch大小
           if (hoodieRecordIterator.hasNext() && statements.size() < multiGetBatchSize) {
             continue;
           }
           // get results for batch from Hbase
+          // 调取HBase get方法获取结果
           Result[] results = doGet(hTable, statements, limiter);
           // clear statements to be GC'd
+          // 清空便于GC回收
           statements.clear();
           for (Result result : results) {
             // first, attempt to grab location from HBase
+            // 移除结果对应的的HoodieRecord
             HoodieRecord currentRecord = currentBatchOfRecords.remove(0);
             if (result.getRow() == null) {
+              // 标记为已打完标签
               taggedRecords.add(currentRecord);
               continue;
             }
+            // 取出key, commit时间，文件ID和分区路径
             String keyFromResult = Bytes.toString(result.getRow());
             String commitTs = Bytes.toString(result.getValue(SYSTEM_COLUMN_FAMILY, COMMIT_TS_COLUMN));
             String fileId = Bytes.toString(result.getValue(SYSTEM_COLUMN_FAMILY, FILE_NAME_COLUMN));
             String partitionPath = Bytes.toString(result.getValue(SYSTEM_COLUMN_FAMILY, PARTITION_PATH_COLUMN));
+            // 检查是否为合法的提交（包含在timeline或者小于最新的一次commit）
             if (!checkIfValidCommit(metaClient, commitTs)) {
               // if commit is invalid, treat this as a new taggedRecord
+              // 标记为已打完标签
               taggedRecords.add(currentRecord);
               continue;
             }
             // check whether to do partition change processing
             if (updatePartitionPath && !partitionPath.equals(currentRecord.getPartitionPath())) {
               // delete partition old data record
+              // 重新生成HoodieRecord
               HoodieRecord emptyRecord = new HoodieRecord(new HoodieKey(currentRecord.getRecordKey(), partitionPath),
                   new EmptyHoodieRecordPayload());
               emptyRecord.unseal();
+              // 设置位置信息
               emptyRecord.setCurrentLocation(new HoodieRecordLocation(commitTs, fileId));
               emptyRecord.seal();
               // insert partition new data record
@@ -263,7 +279,7 @@ public class SparkHoodieHBaseIndex<T extends HoodieRecordPayload> extends SparkH
                   currentRecord.getData());
               taggedRecords.add(emptyRecord);
               taggedRecords.add(currentRecord);
-            } else {
+            } else { // 非法提交，也标记为已打完标签
               currentRecord = new HoodieRecord(new HoodieKey(currentRecord.getRecordKey(), partitionPath),
                   currentRecord.getData());
               currentRecord.unseal();
@@ -290,6 +306,7 @@ public class SparkHoodieHBaseIndex<T extends HoodieRecordPayload> extends SparkH
     return new Result[keys.size()];
   }
 
+  // 给输入记录RDD打位置标签
   @Override
   public JavaRDD<HoodieRecord<T>> tagLocation(JavaRDD<HoodieRecord<T>> recordRDD,
                                               HoodieEngineContext context,
@@ -297,12 +314,14 @@ public class SparkHoodieHBaseIndex<T extends HoodieRecordPayload> extends SparkH
     return recordRDD.mapPartitionsWithIndex(locationTagFunction(hoodieTable.getMetaClient()), true);
   }
 
+  // 更新位置信息
   private Function2<Integer, Iterator<WriteStatus>, Iterator<WriteStatus>> updateLocationFunction() {
 
     return (Function2<Integer, Iterator<WriteStatus>, Iterator<WriteStatus>>) (partition, statusIterator) -> {
 
       List<WriteStatus> writeStatusList = new ArrayList<>();
       // Grab the global HBase connection
+      // 获取HBase连接
       synchronized (SparkHoodieHBaseIndex.class) {
         if (hbaseConnection == null || hbaseConnection.isClosed()) {
           hbaseConnection = getHBaseConnection();
@@ -310,7 +329,6 @@ public class SparkHoodieHBaseIndex<T extends HoodieRecordPayload> extends SparkH
       }
       final long startTimeForPutsTask = DateTime.now().getMillis();
       LOG.info("startTimeForPutsTask for this task: " + startTimeForPutsTask);
-
       try (BufferedMutator mutator = hbaseConnection.getBufferedMutator(TableName.valueOf(tableName))) {
         final RateLimiter limiter = RateLimiter.create(multiPutBatchSize, TimeUnit.SECONDS);
         while (statusIterator.hasNext()) {
@@ -329,15 +347,19 @@ public class SparkHoodieHBaseIndex<T extends HoodieRecordPayload> extends SparkH
                 if (loc.isPresent()) {
                   if (rec.getCurrentLocation() != null) {
                     // This is an update, no need to update index
+                    // 若当前record的key在HBase索引表已经存在，则无需对index进行update
                     continue;
                   }
+                  // 当前record的key不在HBase索引表中，则通过instantTime、文件id、分区路径创建HBase Put对象进行写入HBase索引表
                   Put put = new Put(Bytes.toBytes(rec.getRecordKey()));
                   put.addColumn(SYSTEM_COLUMN_FAMILY, COMMIT_TS_COLUMN, Bytes.toBytes(loc.get().getInstantTime()));
                   put.addColumn(SYSTEM_COLUMN_FAMILY, FILE_NAME_COLUMN, Bytes.toBytes(loc.get().getFileId()));
                   put.addColumn(SYSTEM_COLUMN_FAMILY, PARTITION_PATH_COLUMN, Bytes.toBytes(rec.getPartitionPath()));
+                  // 加入数组中批量写入
                   mutations.add(put);
                 } else {
                   // Delete existing index for a deleted record
+                  // 若record已经删除，则删除HBase索引表中此record的index
                   Delete delete = new Delete(Bytes.toBytes(rec.getRecordKey()));
                   mutations.add(delete);
                 }
@@ -345,9 +367,11 @@ public class SparkHoodieHBaseIndex<T extends HoodieRecordPayload> extends SparkH
               if (mutations.size() < multiPutBatchSize) {
                 continue;
               }
+              // 更新
               doMutations(mutator, mutations, limiter);
             }
             // process remaining puts and deletes, if any
+            // 处理剩余的更新
             doMutations(mutator, mutations, limiter);
           } catch (Exception e) {
             Exception we = new Exception("Error updating index for " + writeStatus, e);
