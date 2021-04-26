@@ -40,6 +40,11 @@ import scala.collection.JavaConverters._
   * Hoodie Spark Datasource, for reading and writing hoodie tables
   *
   */
+/**
+ * Spark支持用户自定义的format来读取或写入文件，只需要实现对应的（RelationProvider、SchemaRelationProvider）等接口即可。
+ * 而Hudi也自定义实现了 org.apache.hudi/ hudi来实现Spark对Hudi数据集的读写，Hudi中最重要的一个相关类为 DefaultSource，
+ * 其实现了 CreatableRelationProvider#createRelation接口，并实现了读写逻辑。
+ */
 class DefaultSource extends RelationProvider
   with SchemaRelationProvider
   with CreatableRelationProvider
@@ -52,6 +57,9 @@ class DefaultSource extends RelationProvider
     val sparkVersion = spark.version
     if (sparkVersion.startsWith("0.") || sparkVersion.startsWith("1.") || sparkVersion.startsWith("2.")) {
       // Enable "passPartitionByAsOptions" to support "write.partitionBy(...)"
+      // "Whether to pass the partitionBy columns as options in DataFrameWriter. Data source V1 now silently drops partitionBy columns for non-file-format sources; turning the flag on provides a way for these sources to see these partitionBy columns."
+
+      // 设置所有spark session为重新分区写可以减少shuffle次数，提高效率
       spark.conf.set("spark.sql.legacy.sources.write.passPartitionByAsOptions", "true")
     }
   }
@@ -63,27 +71,35 @@ class DefaultSource extends RelationProvider
     createRelation(sqlContext, parameters, null)
   }
 
+  // spark读hudi文件逻辑
+  // 当使用Spark查询Hudi数据集时，当数据的schema新增时，会获取单个分区的parquet文件来推导出schema，若变更schema后未更新该分区数据，那么新增的列是不会显示，否则会显示该新增的列；
+  // 若更新该分区的记录时，那么新增的列也不会显示，可通过 mergeSchema来控制合并不同分区下parquet文件的schema，从而可达到显示新增列的目的。
+  // .option("mergeSchema","true")
   override def createRelation(sqlContext: SQLContext,
                               optParams: Map[String, String],
                               schema: StructType): BaseRelation = {
     // Add default options for unspecified read options keys.
+    // 合并参数
     val parameters = translateViewTypesToQueryTypes(optParams)
 
     val path = parameters.get("path")
     val readPathsStr = parameters.get(DataSourceReadOptions.READ_PATHS_OPT_KEY)
+    // read source path不能为空
     if (path.isEmpty && readPathsStr.isEmpty) {
       throw new HoodieException(s"'path' or '$READ_PATHS_OPT_KEY' or both must be specified.")
     }
 
     val readPaths = readPathsStr.map(p => p.split(",").toSeq).getOrElse(Seq())
+    // 合并所有path
     val allPaths = path.map(p => Seq(p)).getOrElse(Seq()) ++ readPaths
-
+    // 获取对应allpath的文件
     val fs = FSUtils.getFs(allPaths.head, sqlContext.sparkContext.hadoopConfiguration)
+    // 检查输入路径是否包含全局模式，如果是，则将其映射到与全局模式匹配的绝对路径列表。否则，返回原始路径 全路径-->绝对路径
     val globPaths = HoodieSparkUtils.checkAndGlobPathIfNecessary(allPaths, fs)
-
+    // 获取对应allpath的表路径
     val tablePath = DataSourceUtils.getTablePath(fs, globPaths.toArray)
     log.info("Obtained hudi table path: " + tablePath)
-
+    // 创建元数据client
     val metaClient = HoodieTableMetaClient.builder().setConf(fs.getConf).setBasePath(tablePath).build()
     val isBootstrappedTable = metaClient.getTableConfig.getBootstrapBasePath.isPresent
     log.info("Is bootstrapped table => " + isBootstrappedTable)
@@ -94,11 +110,13 @@ class DefaultSource extends RelationProvider
           // Snapshot query is not supported for Bootstrapped MOR tables
           log.warn("Snapshot query is not supported for Bootstrapped Merge-on-Read tables." +
             " Falling back to Read Optimized query.")
+          // MOR
           new HoodieBootstrapRelation(sqlContext, schema, globPaths, metaClient, optParams)
         } else {
           new MergeOnReadSnapshotRelation(sqlContext, optParams, schema, globPaths, metaClient)
         }
       } else {
+        // COW
         getBaseFileOnlyView(sqlContext, parameters, schema, readPaths, isBootstrappedTable, globPaths, metaClient)
       }
     } else if(parameters(QUERY_TYPE_OPT_KEY).equals(QUERY_TYPE_READ_OPTIMIZED_OPT_VAL)) {
@@ -108,6 +126,7 @@ class DefaultSource extends RelationProvider
       if (metaClient.getTableType.equals(HoodieTableType.MERGE_ON_READ)) {
         new MergeOnReadIncrementalRelation(sqlContext, optParams, schema, metaClient)
       } else {
+        // 增量Relation
         new IncrementalRelation(sqlContext, optParams, schema, metaClient)
       }
     } else {
@@ -184,13 +203,14 @@ class DefaultSource extends RelationProvider
 
       log.info("Constructing hoodie (as parquet) data source with options :" + optParams)
       // simply return as a regular parquet relation
+      // 解析Relation
       DataSource.apply(
         sparkSession = sqlContext.sparkSession,
         paths = extraReadPaths,
         userSpecifiedSchema = Option(schema),
         className = "parquet",
         options = optParams)
-        .resolveRelation()
+        .resolveRelation() // 解析parquet文件
     }
   }
 
