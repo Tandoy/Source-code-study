@@ -53,6 +53,7 @@ public abstract class BaseCleanActionExecutor<T extends HoodieRecordPayload, I, 
     super(context, config, table, instantTime);
   }
 
+  // 执行clean file
   protected static Boolean deleteFileAndGetResult(FileSystem fs, String deletePathStr) throws IOException {
     Path deletePath = new Path(deletePathStr);
     LOG.debug("Working on delete path :" + deletePath);

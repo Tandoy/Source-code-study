@@ -633,6 +633,10 @@ public abstract class AbstractHoodieWriteClient<T extends HoodieRecordPayload, I
    * configurations and CleaningPolicy used. (typically files that no longer can be used by a running query can be
    * cleaned)
    */
+  // 对于 Clean操作， Hudi提供了两种策略：基于文件版本和基于提交保留数。
+  // 并且将 Clean分为生成 HoodieCleanerPlan和执行 HoodieCleanerPlan两个阶段，两阶段并不直接关联.
+  // 在生成 HoodieCleanerPlan时会找出所有符合指定策略的待删除文件，并且为了避免每次全分区处理，Hudi还提供了增量 Clean配置项，即仅仅只处理从上次 Clean后影响的分区，
+  // 然后将 HoodieCleanerPlan序列化至元数据（.aux）目录，在执行阶段会从元数据目录中反序列化后执行删除文件操作。
   public HoodieCleanMetadata clean(String cleanInstantTime) throws HoodieIOException {
     return clean(cleanInstantTime, true);
   }
@@ -644,6 +648,9 @@ public abstract class AbstractHoodieWriteClient<T extends HoodieRecordPayload, I
    * {@link AbstractHoodieWriteClient#scheduleTableService(String, Option, TableServiceType)} and disable inline scheduling
    * of clean.
    */
+  // 对于旧版本的数据 Hudi需要将其删除以节约宝贵的存储空间，
+  // Clean操作有两种策略：KEEP_LATEST_FILE_VERSIONS（保留最新的文件版本）和 KEEP_LATEST_COMMITS（保留最新的提交），
+  // 不同的策略会有不同的行为， Clean阶段被分为生成 HoodieCleanerPlan和执行 HoodieCleanerPlan
   public HoodieCleanMetadata clean(String cleanInstantTime, boolean scheduleInline) throws HoodieIOException {
     if (scheduleInline) {
       scheduleCleaningAtInstant(cleanInstantTime, Option.empty());

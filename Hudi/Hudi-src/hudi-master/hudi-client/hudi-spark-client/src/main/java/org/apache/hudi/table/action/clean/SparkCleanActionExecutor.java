@@ -70,6 +70,7 @@ public class SparkCleanActionExecutor<T extends HoodieRecordPayload> extends
         String partitionPath = partitionDelFileTuple._1();
         Path deletePath = new Path(partitionDelFileTuple._2().getFilePath());
         String deletePathStr = deletePath.toString();
+        // 删除并返回删除状态
         Boolean deletedFileResult = deleteFileAndGetResult(fs, deletePathStr);
         if (!partitionCleanStatMap.containsKey(partitionPath)) {
           partitionCleanStatMap.put(partitionPath, new PartitionCleanStat(partitionPath));
@@ -100,10 +101,11 @@ public class SparkCleanActionExecutor<T extends HoodieRecordPayload> extends
 
     context.setJobStatus(this.getClass().getSimpleName(), "Perform cleaning of partitions");
     List<Tuple2<String, PartitionCleanStat>> partitionCleanStats = jsc
-        .parallelize(cleanerPlan.getFilePathsToBeDeletedPerPartition().entrySet().stream()
+        .parallelize(cleanerPlan.getFilePathsToBeDeletedPerPartition().entrySet().stream() // 需clean的所有文件
             .flatMap(x -> x.getValue().stream().map(y -> new Tuple2<>(x.getKey(),
                 new CleanFileInfo(y.getFilePath(), y.getIsBootstrapBaseFile()))))
             .collect(Collectors.toList()), cleanerParallelism)
+            // 具体实现clean的方法
         .mapPartitionsToPair(deleteFilesFunc(table))
         .reduceByKey(PartitionCleanStat::merge).collect();
 
@@ -111,7 +113,7 @@ public class SparkCleanActionExecutor<T extends HoodieRecordPayload> extends
         .collect(Collectors.toMap(Tuple2::_1, Tuple2::_2));
 
     // Return PartitionCleanStat for each partition passed.
-    return cleanerPlan.getFilePathsToBeDeletedPerPartition().keySet().stream().map(partitionPath -> {
+    return cleanerPlan.getFilePathsToBeDeletedPerPartition().keySet().stream().map(partitionPath -> { // 需clean的所有分区
       PartitionCleanStat partitionCleanStat = partitionCleanStatsMap.containsKey(partitionPath)
           ? partitionCleanStatsMap.get(partitionPath)
           : new PartitionCleanStat(partitionPath);
