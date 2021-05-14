@@ -220,8 +220,9 @@ public class CliFrontend {
      */
     protected void run(String[] args) throws Exception {
         LOG.info("Running 'run' command.");
-
+        // 1.对默认配置以及用户配置参数进行合并
         final Options commandOptions = CliFrontendParser.getRunCommandOptions();
+        // 2. 解析用户自定义参数与默认通用配置进行解析
         final CommandLine commandLine = getCommandLine(commandOptions, args, true);
 
         // evaluate help flag
@@ -685,8 +686,10 @@ public class CliFrontend {
     public CommandLine getCommandLine(
             final Options commandOptions, final String[] args, final boolean stopAtNonOptions)
             throws CliArgsException {
+        // 1.合并
         final Options commandLineOptions =
                 CliFrontendParser.mergeOptions(commandOptions, customCommandLineOptions);
+        // 2.解析 commandLineOptions：默认通用配置 args：用户自定义配置 例如： -p -c -t
         return CliFrontendParser.parse(commandLineOptions, args, stopAtNonOptions);
     }
 
@@ -1034,23 +1037,24 @@ public class CliFrontend {
      */
     public int parseAndRun(String[] args) {
 
-        // check for action
+        // check for action 参数检查
         if (args.length < 1) {
             CliFrontendParser.printHelp(customCommandLines);
             System.out.println("Please specify an action.");
             return 1;
         }
 
-        // get action
+        // get action 得到都第一个参数 例如：run、run-application等
         String action = args[0];
 
-        // remove action from parameters
+        // remove action from parameters 将action操作参数从args中剔除，提取具体用户设置参数例如：-t -c -p等
         final String[] params = Arrays.copyOfRange(args, 1, args.length);
 
         try {
             // do action
             switch (action) {
                 case ACTION_RUN:
+                    // ./flink run入口
                     run(params);
                     return 0;
                 case ACTION_RUN_APPLICATION:
@@ -1114,13 +1118,17 @@ public class CliFrontend {
         EnvironmentInformation.logEnvironmentInfo(LOG, "Command Line Client", args);
 
         // 1. find the configuration directory
+        // 1. 获取发f]Flink配置文件目录
         final String configurationDirectory = getConfigurationDirectoryFromEnv();
 
         // 2. load the global configuration
+        // 2. 加载配置文件
         final Configuration configuration =
                 GlobalConfiguration.loadConfiguration(configurationDirectory);
 
         // 3. load the custom command lines
+        // 3. 加载用户自定义命令行参数以及封装
+            // 并且根据 GenericCLI、Yarn、DefaultCLI 顺序依次添加至ActiveCustomCommandLine集合中返回，其中若用户没有传入参数DefaultCLI则会在集合中
         final List<CustomCommandLine> customCommandLines =
                 loadCustomCommandLines(configuration, configurationDirectory);
 
@@ -1129,6 +1137,7 @@ public class CliFrontend {
             final CliFrontend cli = new CliFrontend(configuration, customCommandLines);
 
             SecurityUtils.install(new SecurityConfiguration(cli.configuration));
+            // 4. 执行run job
             retCode = SecurityUtils.getInstalledContext().runSecured(() -> cli.parseAndRun(args));
         } catch (Throwable t) {
             final Throwable strippedThrowable =
@@ -1136,6 +1145,7 @@ public class CliFrontend {
             LOG.error("Fatal error while running command line interface.", strippedThrowable);
             strippedThrowable.printStackTrace();
         } finally {
+            // 5. 退出
             System.exit(retCode);
         }
     }
@@ -1145,6 +1155,7 @@ public class CliFrontend {
     // --------------------------------------------------------------------------------------------
 
     public static String getConfigurationDirectoryFromEnv() {
+        // 从config.sh中获取FLINK_CONF_DIR路径
         String location = System.getenv(ConfigConstants.ENV_FLINK_CONF_DIR);
 
         if (location != null) {
