@@ -67,16 +67,18 @@ public class AbstractJobClusterExecutor<
             @Nonnull final Configuration configuration,
             @Nonnull final ClassLoader userCodeClassloader)
             throws Exception {
+        // 1.将streamGraph转换成jobGraph
+        // TODO 转换过程暂不分析
         final JobGraph jobGraph = PipelineExecutorUtils.getJobGraph(pipeline, configuration);
-
+        // 2.创建集群描述器，其实也就是创建YarnClient、初始化YarnClient以及启动一个YarnClient
         try (final ClusterDescriptor<ClusterID> clusterDescriptor =
                 clusterClientFactory.createClusterDescriptor(configuration)) {
             final ExecutionConfigAccessor configAccessor =
                     ExecutionConfigAccessor.fromConfiguration(configuration);
-
+        // 3.创建集群资源配置描述器，其实也就是获取相关资源分配 JM内存、TM内存、每个TM所能使用的slot数量
             final ClusterSpecification clusterSpecification =
                     clusterClientFactory.getClusterSpecification(configuration);
-
+        // 4.部署JobCluster
             final ClusterClientProvider<ClusterID> clusterClientProvider =
                     clusterDescriptor.deployJobCluster(
                             clusterSpecification, jobGraph, configAccessor.getDetachedMode());

@@ -310,16 +310,18 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
     private void isReadyForDeployment(ClusterSpecification clusterSpecification) throws Exception {
 
+        // jar包地址检查
         if (this.flinkJarPath == null) {
             throw new YarnDeploymentException("The Flink jar path is null");
         }
+        // 配置文件检查
         if (this.flinkConfiguration == null) {
             throw new YarnDeploymentException("Flink configuration object has not been set");
         }
 
         // Check if we don't exceed YARN's maximum virtual cores.
         final int numYarnMaxVcores = yarnClusterInformationRetriever.getMaxVcores();
-
+        // AM最大使用core数检查
         int configuredAmVcores = flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES);
         if (configuredAmVcores > numYarnMaxVcores) {
             throw new IllegalConfigurationException(
@@ -342,7 +344,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                                     + " unless configured in the Flink config with '%s.'",
                             configuredVcores, numYarnMaxVcores, YarnConfigOptions.VCORES.key()));
         }
-
+        // HADOOP相关配置检查
         // check if required Hadoop environment variables are set. If not, warn user
         if (System.getenv("HADOOP_CONF_DIR") == null && System.getenv("YARN_CONF_DIR") == null) {
             LOG.warn(
@@ -466,15 +468,17 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         }
     }
 
+    // 部署JobCluster
     @Override
     public ClusterClientProvider<ApplicationId> deployJobCluster(
             ClusterSpecification clusterSpecification, JobGraph jobGraph, boolean detached)
             throws ClusterDeploymentException {
         try {
+            // 部署
             return deployInternal(
                     clusterSpecification,
-                    "Flink per-job cluster",
-                    getYarnJobClusterEntrypoint(),
+                    "Flink per-job cluster", // 在yarn界面上看到的就是此类型job
+                    getYarnJobClusterEntrypoint(), // 入口
                     jobGraph,
                     detached);
         } catch (Exception e) {
@@ -518,8 +522,9 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
             @Nullable JobGraph jobGraph,
             boolean detached)
             throws Exception {
-
+        // 1.得到当前执行job用户
         final UserGroupInformation currentUser = UserGroupInformation.getCurrentUser();
+        // 2.开启Kerberos后判断用户权限
         if (HadoopUtils.isKerberosSecurityEnabled(currentUser)) {
             boolean useTicketCache =
                     flinkConfiguration.getBoolean(SecurityOptions.KERBEROS_LOGIN_USETICKETCACHE);
@@ -530,16 +535,16 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                                 + "does not have Kerberos credentials or delegation tokens!");
             }
         }
-
+        // 看部署是否准备好，其实就是在对相关资源配置文件的检查：AM最大使用core数，YARN最大使用core数、HADOOP相关...
         isReadyForDeployment(clusterSpecification);
 
         // ------------------ Check if the specified queue exists --------------------
-
+        // 检查YARN队列，默认default
         checkYarnQueues(yarnClient);
 
         // ------------------ Check if the YARN ClusterClient has the requested resources
         // --------------
-
+        // 使用yarnClient创建application以及相关资源校验
         // Create application via yarnClient
         final YarnClientApplication yarnApplication = yarnClient.createApplication();
         final GetNewApplicationResponse appResponse = yarnApplication.getNewApplicationResponse();
@@ -583,12 +588,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
         final ClusterEntrypoint.ExecutionMode executionMode =
                 detached
-                        ? ClusterEntrypoint.ExecutionMode.DETACHED
+                        ? ClusterEntrypoint.ExecutionMode.DETACHED // 这里就是用户命令行中如果 -d 则是分离模式，命令行可立即退出
                         : ClusterEntrypoint.ExecutionMode.NORMAL;
 
         flinkConfiguration.setString(
                 ClusterEntrypoint.INTERNAL_CLUSTER_EXECUTION_MODE, executionMode.toString());
-
+        // 启动YARN中组件：applicationMaster
         ApplicationReport report =
                 startAppMaster(
                         flinkConfiguration,

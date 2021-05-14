@@ -30,7 +30,7 @@ import static org.apache.flink.configuration.description.TextElement.text;
 @PublicEvolving
 public class DeploymentOptions {
 
-    public static final ConfigOption<String> TARGET = // 其实也就是y用户命令行提交时指定 -t 参数后面的
+    public static final ConfigOption<String> TARGET = // 其实也就是用户命令行提交时指定 -t 参数后面的
             key("execution.target")
                     .stringType()
                     .noDefaultValue()

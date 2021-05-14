@@ -1818,6 +1818,7 @@ public class StreamExecutionEnvironment {
      * @return The result of the job execution, containing elapsed time and accumulators.
      * @throws Exception which occurs during job execution.
      */
+    // 用户执行代码入口
     public JobExecutionResult execute() throws Exception {
         return execute(getJobName());
     }
@@ -1834,8 +1835,10 @@ public class StreamExecutionEnvironment {
      * @throws Exception which occurs during job execution.
      */
     public JobExecutionResult execute(String jobName) throws Exception {
+        // 对jobName进行校验不能为空
         Preconditions.checkNotNull(jobName, "Streaming Job name should not be null.");
-
+        // 获取StreamGraph，接着执行
+        // TODO 生成StreamGraph暂不分析
         return execute(getStreamGraph(jobName));
     }
 
@@ -1850,8 +1853,9 @@ public class StreamExecutionEnvironment {
      */
     @Internal
     public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
+        // 真正执行用户代码入口
         final JobClient jobClient = executeAsync(streamGraph);
-
+        // job执行完后相关结果处理
         try {
             final JobExecutionResult jobExecutionResult;
 
@@ -1943,19 +1947,20 @@ public class StreamExecutionEnvironment {
      */
     @Internal
     public JobClient executeAsync(StreamGraph streamGraph) throws Exception {
+        // 1. streamGraph以及执用户执行模式参数的检查
         checkNotNull(streamGraph, "StreamGraph cannot be null.");
         checkNotNull(
                 configuration.get(DeploymentOptions.TARGET),
                 "No execution.target specified in your configuration file.");
-
+        // 2. 得到相关执行器
         final PipelineExecutorFactory executorFactory =
                 executorServiceLoader.getExecutorFactory(configuration);
-
+        // 3. 对拿到的执行器进行检查
         checkNotNull(
                 executorFactory,
                 "Cannot find compatible factory for specified execution.target (=%s)",
                 configuration.get(DeploymentOptions.TARGET));
-
+        // 4.通过对应Executor进行execute
         CompletableFuture<JobClient> jobClientFuture =
                 executorFactory
                         .getExecutor(configuration)

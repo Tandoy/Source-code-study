@@ -35,6 +35,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public abstract class AbstractContainerizedClusterClientFactory<ClusterID>
         implements ClusterClientFactory<ClusterID> {
 
+    // 此方法就是在获取相关资源分配 JM内存、TM内存、每个TM所能使用的slot数量
     @Override
     public ClusterSpecification getClusterSpecification(Configuration configuration) {
         checkNotNull(configuration);
