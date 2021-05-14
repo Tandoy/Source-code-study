@@ -67,17 +67,17 @@ public class ProgramOptions extends CommandLineOptions {
 
     protected ProgramOptions(CommandLine line) throws CliArgsException {
         super(line);
-
+        // 1.入口class，其实就是用户指定的xxx.jar
         this.entryPointClass =
                 line.hasOption(CLASS_OPTION.getOpt())
                         ? line.getOptionValue(CLASS_OPTION.getOpt())
                         : null;
-
+        // 2.JAR包存在位置
         this.jarFilePath =
                 line.hasOption(JAR_OPTION.getOpt())
                         ? line.getOptionValue(JAR_OPTION.getOpt())
                         : null;
-
+        //
         this.programArgs = extractProgramArgs(line);
 
         List<URL> classpaths = new ArrayList<URL>();
@@ -182,6 +182,7 @@ public class ProgramOptions extends CommandLineOptions {
     }
 
     public static ProgramOptions create(CommandLine line) throws CliArgsException {
+        // python相关
         if (isPythonEntryPoint(line) || containsPythonDependencyOptions(line)) {
             return createPythonProgramOptions(line);
         } else {

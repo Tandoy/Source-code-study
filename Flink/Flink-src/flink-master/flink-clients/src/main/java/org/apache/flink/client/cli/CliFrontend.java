@@ -234,17 +234,18 @@ public class CliFrontend {
         final CustomCommandLine activeCommandLine =
                 // 校验+选择活跃客户端
                 validateAndGetActiveCommandLine(checkNotNull(commandLine));
-
+        // 4.提取相关资源配置
         final ProgramOptions programOptions = ProgramOptions.create(commandLine);
-
+        // 5.获取用户的jar以及依赖
         final List<URL> jobJars = getJobJarAndDependencies(programOptions);
-
+        // 6.获取有效配置并封装
         final Configuration effectiveConfiguration =
                 getEffectiveConfiguration(activeCommandLine, commandLine, programOptions, jobJars);
 
         LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
 
         try (PackagedProgram program = getPackagedProgram(programOptions, effectiveConfiguration)) {
+            // 7.执行程序
             executeProgram(effectiveConfiguration, program);
         }
     }

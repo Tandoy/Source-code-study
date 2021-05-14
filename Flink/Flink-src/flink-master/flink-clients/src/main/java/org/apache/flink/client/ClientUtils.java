@@ -79,6 +79,7 @@ public enum ClientUtils {
                 checkClassloaderLeak);
     }
 
+    // 执行用户程序
     public static void executeProgram(
             PipelineExecutorServiceLoader executorServiceLoader,
             Configuration configuration,
@@ -87,15 +88,19 @@ public enum ClientUtils {
             boolean suppressSysout)
             throws ProgramInvocationException {
         checkNotNull(executorServiceLoader);
+        // 1. 获取userCodeClassLoader
         final ClassLoader userCodeClassLoader = program.getUserCodeClassLoader();
+
         final ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
         try {
+            // 2. 为当前线程赋ClassLoader
             Thread.currentThread().setContextClassLoader(userCodeClassLoader);
 
             LOG.info(
                     "Starting program (detached: {})",
                     !configuration.getBoolean(DeploymentOptions.ATTACHED));
-
+            // 3. 为上下文赋值环境
+            // 用户写的代码中 StreamExecutionEnvironment.getExecutionEnvironment(); 获取环境就是在这里拿到
             ContextEnvironment.setAsContext(
                     executorServiceLoader,
                     configuration,
@@ -111,6 +116,7 @@ public enum ClientUtils {
                     suppressSysout);
 
             try {
+                // 4.执行
                 program.invokeInteractiveModeForExecution();
             } finally {
                 ContextEnvironment.unsetAsContext();
