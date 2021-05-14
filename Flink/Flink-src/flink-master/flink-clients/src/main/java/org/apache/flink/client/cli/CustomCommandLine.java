@@ -33,6 +33,7 @@ public interface CustomCommandLine {
      * @param commandLine The command-line options
      * @return True if the command-line wants to run, False otherwise
      */
+    // 具体实现类实现此方法
     boolean isActive(CommandLine commandLine);
 
     /**

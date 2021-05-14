@@ -230,8 +230,9 @@ public class CliFrontend {
             CliFrontendParser.printHelpForRun(customCommandLines);
             return;
         }
-
+        // 3.选择命令行客户端 Generic、 Yarn 和 Default 三种命令行客户端 standalone/yarn-per-job yarn-session
         final CustomCommandLine activeCommandLine =
+                // 校验+选择活跃客户端
                 validateAndGetActiveCommandLine(checkNotNull(commandLine));
 
         final ProgramOptions programOptions = ProgramOptions.create(commandLine);
@@ -1114,6 +1115,11 @@ public class CliFrontend {
     }
 
     /** Submits the job based on the arguments. */
+    /**
+     * flink yarn-per-job不同版本的命令行对比：
+     *  version <= 1.10 ./flink run -m yarn-cluster -c xxxx xxxx.jar
+     *  version >= 1.11 ./flink run -t yarn-per-job -c xxxx xxxx.jar
+     */
     public static void main(final String[] args) {
         EnvironmentInformation.logEnvironmentInfo(LOG, "Command Line Client", args);
 
@@ -1243,6 +1249,7 @@ public class CliFrontend {
     public CustomCommandLine validateAndGetActiveCommandLine(CommandLine commandLine) {
         LOG.debug("Custom commandlines: {}", customCommandLines);
         for (CustomCommandLine cli : customCommandLines) {
+            // 按照顺序遍历所有的cli GenericCLI、Yarn、DefaultCLI进行活跃判断
             LOG.debug(
                     "Checking custom commandline {}, isActive: {}", cli, cli.isActive(commandLine));
             if (cli.isActive(commandLine)) {

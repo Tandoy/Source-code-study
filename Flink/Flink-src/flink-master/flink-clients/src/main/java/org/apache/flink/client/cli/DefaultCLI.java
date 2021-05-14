@@ -46,9 +46,11 @@ public class DefaultCLI extends AbstractCustomCommandLine {
                             + "Use this flag to connect to a different JobManager than the one specified in the configuration. "
                             + "Attention: This option is respected only if the high-availability configuration is NONE.");
 
+    // 按照添加顺序最后一个判断 DefaultCli
     @Override
     public boolean isActive(CommandLine commandLine) {
         // always active because we can try to read a JobManager address from the config
+        // 默认活跃
         return true;
     }
 

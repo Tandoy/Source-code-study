@@ -84,11 +84,12 @@ public class GenericCLI implements CustomCommandLine {
         this.configurationDir = checkNotNull(configDir);
     }
 
+    // 按照添加顺序第一个优先判断 GenericCLI
     @Override
     public boolean isActive(CommandLine commandLine) {
-        return configuration.getOptional(DeploymentOptions.TARGET).isPresent()
-                || commandLine.hasOption(executorOption.getOpt())
-                || commandLine.hasOption(targetOption.getOpt());
+        return configuration.getOptional(DeploymentOptions.TARGET).isPresent() // 指定模式是否存在
+                || commandLine.hasOption(executorOption.getOpt()) // -e 参数是否存在 已废弃
+                || commandLine.hasOption(targetOption.getOpt()); // -t 参数是否存在
     }
 
     @Override

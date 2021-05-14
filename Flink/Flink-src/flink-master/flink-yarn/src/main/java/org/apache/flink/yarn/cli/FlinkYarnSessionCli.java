@@ -368,6 +368,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
         }
     }
 
+    // 按照添加顺序第二个判断 YarnCli
     @Override
     public boolean isActive(CommandLine commandLine) {
         if (!super.isActive(commandLine)) {
