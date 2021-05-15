@@ -186,6 +186,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
             securityContext.runSecured(
                     (Callable<Void>)
                             () -> {
+                        // 开始启动集群
                                 runCluster(configuration, pluginManager);
 
                                 return null;
@@ -235,12 +236,13 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
     private void runCluster(Configuration configuration, PluginManager pluginManager)
             throws Exception {
         synchronized (lock) {
+            // 1.相关服务初始化
             initializeServices(configuration, pluginManager);
 
             // write host information into configuration
             configuration.setString(JobManagerOptions.ADDRESS, commonRpcService.getAddress());
             configuration.setInteger(JobManagerOptions.PORT, commonRpcService.getPort());
-
+            // 2.创建并Dispatcher+ResourceManager
             final DispatcherResourceManagerComponentFactory
                     dispatcherResourceManagerComponentFactory =
                             createDispatcherResourceManagerComponentFactory(configuration);
@@ -577,6 +579,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
     // Helper methods
     // --------------------------------------------------
 
+    // 在YARN启动集群
     public static void runClusterEntrypoint(ClusterEntrypoint clusterEntrypoint) {
 
         final String clusterEntrypointName = clusterEntrypoint.getClass().getSimpleName();

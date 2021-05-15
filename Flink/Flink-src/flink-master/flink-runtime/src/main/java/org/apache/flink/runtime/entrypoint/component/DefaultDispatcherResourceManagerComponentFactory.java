@@ -117,7 +117,7 @@ public class DefaultDispatcherResourceManagerComponentFactory
         ResourceManager<?> resourceManager = null;
         DispatcherRunner dispatcherRunner = null;
 
-        try {
+        try { // 高可用
             dispatcherLeaderRetrievalService =
                     highAvailabilityServices.getDispatcherLeaderRetriever();
 
@@ -156,7 +156,7 @@ public class DefaultDispatcherResourceManagerComponentFactory
                                     metricQueryServiceRetriever,
                                     dispatcherGatewayRetriever,
                                     executor);
-
+            // 这个是web服务：用于获取job执行日志等
             webMonitorEndpoint =
                     restEndpointFactory.createRestEndpoint(
                             configuration,
@@ -172,7 +172,7 @@ public class DefaultDispatcherResourceManagerComponentFactory
             webMonitorEndpoint.start();
 
             final String hostname = RpcUtils.getHostname(rpcService);
-
+            // 创建resourceManager
             resourceManager =
                     resourceManagerFactory.createResourceManager(
                             configuration,
@@ -208,6 +208,7 @@ public class DefaultDispatcherResourceManagerComponentFactory
                             ioExecutor);
 
             log.debug("Starting Dispatcher.");
+            // 创建dispatcher并启动
             dispatcherRunner =
                     dispatcherRunnerFactory.createDispatcherRunner(
                             highAvailabilityServices.getDispatcherLeaderElectionService(),
@@ -218,6 +219,7 @@ public class DefaultDispatcherResourceManagerComponentFactory
                             partialDispatcherServices);
 
             log.debug("Starting ResourceManager.");
+            // 启动resourceManager
             resourceManager.start();
 
             resourceManagerRetrievalService.start(resourceManagerGatewayRetriever);

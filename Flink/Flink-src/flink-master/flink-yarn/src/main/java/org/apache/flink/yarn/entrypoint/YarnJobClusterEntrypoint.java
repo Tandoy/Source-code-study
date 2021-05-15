@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.util.Map;
 
 /** Entry point for Yarn per-job clusters. */
+// 此入口就是Yarn-Per-Job模式当AM启动后，在YARN集群上启动Flink所需进程
 public class YarnJobClusterEntrypoint extends JobClusterEntrypoint {
 
     public YarnJobClusterEntrypoint(Configuration configuration) {
@@ -63,7 +64,7 @@ public class YarnJobClusterEntrypoint extends JobClusterEntrypoint {
     //  The executable entry point for the Yarn Application Master Process
     //  for a single Flink job.
     // ------------------------------------------------------------------------
-
+    // Yarn-Per-Job模式下ApplicationMaster的入口，去创建启动相关进程：Dispatcher、ResourceManager、JM、SM、TM等
     public static void main(String[] args) {
         // startup checks and logging
         EnvironmentInformation.logEnvironmentInfo(
