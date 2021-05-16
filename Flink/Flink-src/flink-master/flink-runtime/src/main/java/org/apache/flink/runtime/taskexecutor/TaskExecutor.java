@@ -399,6 +399,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     private void startTaskExecutorServices() throws Exception {
         try {
             // start by connecting to the ResourceManager
+            // 这里就是在向RM中的SM反向注册Slot
             resourceManagerLeaderRetriever.start(new ResourceManagerLeaderListener());
 
             // tell the task slot table who's responsible for the task slot actions
