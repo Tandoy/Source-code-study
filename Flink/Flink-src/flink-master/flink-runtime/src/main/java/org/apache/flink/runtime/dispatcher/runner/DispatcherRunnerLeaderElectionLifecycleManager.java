@@ -36,7 +36,8 @@ final class DispatcherRunnerLeaderElectionLifecycleManager<
             T dispatcherRunner, LeaderElectionService leaderElectionService) throws Exception {
         this.dispatcherRunner = dispatcherRunner;
         this.leaderElectionService = leaderElectionService;
-
+        // 开始高可用选举
+        // RM、dispatcher这些组件StandaloneLeaderElectionService都由这个类start
         leaderElectionService.start(dispatcherRunner);
     }
 

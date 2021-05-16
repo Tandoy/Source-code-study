@@ -106,11 +106,13 @@ public final class DefaultDispatcherRunner implements DispatcherRunner, LeaderCo
     }
 
     private void startNewDispatcherLeaderProcess(UUID leaderSessionID) {
+        // 1.先停止以免重复启动Dispatcher
         stopDispatcherLeaderProcess();
 
         dispatcherLeaderProcess = createNewDispatcherLeaderProcess(leaderSessionID);
 
         final DispatcherLeaderProcess newDispatcherLeaderProcess = dispatcherLeaderProcess;
+        // 2.启动
         FutureUtils.assertNoException(
                 previousDispatcherLeaderProcessTerminationFuture.thenRun(
                         newDispatcherLeaderProcess::start));

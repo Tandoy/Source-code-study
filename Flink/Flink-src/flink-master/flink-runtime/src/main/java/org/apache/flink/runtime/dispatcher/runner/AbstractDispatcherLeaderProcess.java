@@ -90,6 +90,7 @@ public abstract class AbstractDispatcherLeaderProcess implements DispatcherLeade
 
     @Override
     public final void start() {
+        // 状态为CREATED则创建
         runIfStateIs(State.CREATED, this::startInternal);
     }
 
@@ -255,6 +256,7 @@ public abstract class AbstractDispatcherLeaderProcess implements DispatcherLeade
     // ------------------------------------------------------------
 
     /** Factory for {@link DispatcherGatewayService}. */
+    // Dispatcher网关
     public interface DispatcherGatewayServiceFactory {
         DispatcherGatewayService create(
                 DispatcherId fencingToken,

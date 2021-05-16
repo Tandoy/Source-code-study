@@ -50,6 +50,7 @@ class DefaultDispatcherGatewayServiceFactory
         this.partialDispatcherServices = partialDispatcherServices;
     }
 
+    // Dispatcher最终创建并启动
     @Override
     public AbstractDispatcherLeaderProcess.DispatcherGatewayService create(
             DispatcherId fencingToken,
@@ -58,6 +59,7 @@ class DefaultDispatcherGatewayServiceFactory
 
         final Dispatcher dispatcher;
         try {
+            // 1.创建Dispatcher
             dispatcher =
                     dispatcherFactory.createDispatcher(
                             rpcService,
@@ -70,7 +72,7 @@ class DefaultDispatcherGatewayServiceFactory
         } catch (Exception e) {
             throw new FlinkRuntimeException("Could not create the Dispatcher rpc endpoint.", e);
         }
-
+        // 2.启动Dispatcher
         dispatcher.start();
 
         return DefaultDispatcherGatewayService.from(dispatcher);
