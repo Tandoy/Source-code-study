@@ -303,6 +303,7 @@ public class JobManagerRunnerImpl
                             ThrowingRunnable.unchecked(
                                     () -> {
                                         synchronized (lock) {
+                                            // 检查调度状态并且启动JobMaster
                                             verifyJobSchedulingStatusAndStartJobManager(
                                                     leaderSessionID);
                                         }
@@ -355,6 +356,7 @@ public class JobManagerRunnerImpl
         }
     }
 
+    // 启动JobMaster
     private void startJobMasterServiceSafely(UUID leaderSessionId) {
         checkState(jobMasterService == null, "JobMasterService must be null before being started.");
 

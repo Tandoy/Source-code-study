@@ -858,10 +858,11 @@ public class JobMaster extends PermanentlyFencedRpcEndpoint<JobMasterId>
 
     // -- job starting and stopping
     // -----------------------------------------------------------------
-
+    //
     private void startJobExecution() throws Exception {
+        // 1.检查当前线程是不是主线程
         validateRunsInMainThread();
-
+        // 2.启动JobMaster
         startJobMasterServices();
 
         log.info(
@@ -869,7 +870,7 @@ public class JobMaster extends PermanentlyFencedRpcEndpoint<JobMasterId>
                 jobGraph.getName(),
                 jobGraph.getJobID(),
                 getFencingToken());
-
+        // 3.开始调度
         startScheduling();
     }
 

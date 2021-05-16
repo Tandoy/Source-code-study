@@ -86,7 +86,7 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
                         jobManagerJobMetricGroupFactory,
                         fatalErrorHandler,
                         shuffleMaster);
-
+        // 实现类
         return new JobManagerRunnerImpl(
                 jobGraph,
                 jobMasterFactory,

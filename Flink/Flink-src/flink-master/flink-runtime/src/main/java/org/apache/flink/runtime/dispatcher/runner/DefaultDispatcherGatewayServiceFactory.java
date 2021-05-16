@@ -73,6 +73,8 @@ class DefaultDispatcherGatewayServiceFactory
             throw new FlinkRuntimeException("Could not create the Dispatcher rpc endpoint.", e);
         }
         // 2.启动Dispatcher
+        // Dispatcher主要来接受用户job&启动JobMaster
+        // 由于Flink底层通信采用akka，所以调用start()之后，响应端会最终调用onStart()
         dispatcher.start();
 
         return DefaultDispatcherGatewayService.from(dispatcher);

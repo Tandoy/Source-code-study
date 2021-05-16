@@ -98,6 +98,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * job submissions, persisting them, spawning JobManagers to execute the jobs and to recover them in
  * case of a master failure. Furthermore, it knows about the state of the Flink session cluster.
  */
+// Dispatcher主要来接受用户job、创建并启动JobMaster以及接受作业运行状态
+// 由于Flink底层通信采用akka，所以调用start()之后，响应端会最终调用onStart()
 public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<DispatcherId>
         implements DispatcherGateway {
 
@@ -206,6 +208,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
     @Override
     public void onStart() throws Exception {
         try {
+            // 1.启动Dispatcher
             startDispatcherServices();
         } catch (Throwable t) {
             final DispatcherException exception =
@@ -215,6 +218,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
             throw exception;
         }
 
+        // 2.启动JobMaster
         startRecoveredJobs();
         this.dispatcherBootstrap =
                 this.dispatcherBootstrapFactory.create(
@@ -241,6 +245,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
     private void runRecoveredJob(final JobGraph recoveredJob) {
         checkNotNull(recoveredJob);
         try {
+            // run
             runJob(recoveredJob, ExecutionType.RECOVERY);
         } catch (Throwable throwable) {
             onFatalError(
@@ -394,8 +399,10 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
     }
 
     private void runJob(JobGraph jobGraph, ExecutionType executionType) {
+        // 1.jobGraph检查
         Preconditions.checkState(!runningJobs.containsKey(jobGraph.getJobID()));
         long initializationTimestamp = System.currentTimeMillis();
+        // 2.创建并启动JobMaster，其实这里jobManagerRunnerFuture并不是jobManager
         CompletableFuture<JobManagerRunner> jobManagerRunnerFuture =
                 createJobManagerRunner(jobGraph, initializationTimestamp);
 
@@ -473,6 +480,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {
+                        // 1.创建这个runner就是JobMaster
                         JobManagerRunner runner =
                                 jobManagerRunnerFactory.createJobManagerRunner(
                                         jobGraph,
@@ -485,6 +493,7 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
                                                 jobManagerMetricGroup),
                                         fatalErrorHandler,
                                         initializationTimestamp);
+                        // 2.启动JobMaster
                         runner.start();
                         return runner;
                     } catch (Exception e) {
