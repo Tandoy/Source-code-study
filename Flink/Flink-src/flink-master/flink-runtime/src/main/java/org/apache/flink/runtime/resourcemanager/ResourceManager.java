@@ -228,6 +228,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
     //  RPC lifecycle methods
     // ------------------------------------------------------------------------
 
+    // 启动flink的rm
     @Override
     public final void onStart() throws Exception {
         try {
@@ -246,9 +247,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
         try {
             leaderElectionService =
                     highAvailabilityServices.getResourceManagerLeaderElectionService();
-
+            // RM启动前的初始化
             initialize();
-
+            // 启动集群的RM
             leaderElectionService.start(this);
             jobLeaderIdService.start(new JobLeaderIdActionsImpl());
 
@@ -1239,7 +1240,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
             }
 
             setFencingToken(newResourceManagerId);
-
+            // 启动
             startServicesOnLeadership();
 
             return prepareLeadershipAsync().thenApply(ignored -> hasLeadership = true);
@@ -1249,8 +1250,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
     }
 
     private void startServicesOnLeadership() {
+        // 开启与TM、NM心跳服务
         startHeartbeatServices();
-
+        // 启动slotManager
         slotManager.start(getFencingToken(), getMainThreadExecutor(), new ResourceActionsImpl());
 
         onLeadership();

@@ -77,7 +77,7 @@ public abstract class AbstractResourceManagerDriver<WorkerType extends ResourceI
         this.resourceEventHandler = Preconditions.checkNotNull(resourceEventHandler);
         this.mainThreadExecutor = Preconditions.checkNotNull(mainThreadExecutor);
         this.ioExecutor = Preconditions.checkNotNull(ioExecutor);
-
+        // 实际初始化方法
         initializeInternal();
     }
 

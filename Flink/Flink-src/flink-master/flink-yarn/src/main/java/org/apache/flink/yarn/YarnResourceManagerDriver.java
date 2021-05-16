@@ -161,6 +161,7 @@ public class YarnResourceManagerDriver extends AbstractResourceManagerDriver<Yar
     @Override
     protected void initializeInternal() throws Exception {
         final YarnContainerEventHandler yarnContainerEventHandler = new YarnContainerEventHandler();
+        // 1.在AM中创建yarn的rm客户端并启动，这样就可以向yarn的rm申请资源
         try {
             resourceManagerClient =
                     yarnResourceManagerClientFactory.createResourceManagerClient(
@@ -180,7 +181,7 @@ public class YarnResourceManagerDriver extends AbstractResourceManagerDriver<Yar
         } catch (Exception e) {
             throw new ResourceManagerException("Could not start resource manager client.", e);
         }
-
+        // 2.创建nodeManager并启动
         nodeManagerClient =
                 yarnNodeManagerClientFactory.createNodeManagerClient(yarnContainerEventHandler);
         nodeManagerClient.init(yarnConfig);

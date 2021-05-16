@@ -208,7 +208,7 @@ public class DefaultDispatcherResourceManagerComponentFactory
                             ioExecutor);
 
             log.debug("Starting Dispatcher.");
-            // 创建dispatcher并启动
+            // 创建dispatcher并启动(这里dispatcher会创建JobMaster并启动)
             dispatcherRunner =
                     dispatcherRunnerFactory.createDispatcherRunner(
                             highAvailabilityServices.getDispatcherLeaderElectionService(),
@@ -219,7 +219,8 @@ public class DefaultDispatcherResourceManagerComponentFactory
                             partialDispatcherServices);
 
             log.debug("Starting ResourceManager.");
-            // 启动resourceManager
+            // 启动resourceManager(这里其实会启动SlotManager)
+            // rpc调用，这里直接看resourceManager.onStart()
             resourceManager.start();
 
             resourceManagerRetrievalService.start(resourceManagerGatewayRetriever);
