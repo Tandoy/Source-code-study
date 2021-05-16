@@ -1115,6 +1115,7 @@ public class SlotManagerImpl implements SlotManager {
      * @param taskManagerSlot to allocate for the given slot request
      * @param pendingSlotRequest to allocate the given slot for
      */
+    // SM接受到申请后向TM分配slot具体方法
     private void allocateSlot(
             TaskManagerSlot taskManagerSlot, PendingSlotRequest pendingSlotRequest) {
         Preconditions.checkState(taskManagerSlot.getState() == SlotState.FREE);
@@ -1142,6 +1143,7 @@ public class SlotManagerImpl implements SlotManager {
         taskManagerRegistration.markUsed();
 
         // RPC call to the task manager
+        // slot分配完成后，通知TM 提供slot给 JM
         CompletableFuture<Acknowledge> requestFuture =
                 gateway.requestSlot(
                         slotId,

@@ -1029,7 +1029,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                 allocationId,
                 jobId,
                 resourceManagerId);
-
+        // RM连接判断
         if (!isConnectedToResourceManager(resourceManagerId)) {
             final String message =
                     String.format(
@@ -1040,6 +1040,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
         }
 
         try {
+            // TM自己再进行分配slot
             allocateSlot(slotId, jobId, allocationId, resourceProfile);
         } catch (SlotAllocationException sae) {
             return FutureUtils.completedExceptionally(sae);
@@ -1074,6 +1075,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
         }
 
         if (job.isConnected()) {
+            // TM分配完后报告给JM
             offerSlotsToJobManager(jobId);
         }
 
@@ -1472,6 +1474,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
             }
 
             CompletableFuture<Collection<SlotOffer>> acceptedSlotsFuture =
+                    //
                     jobMasterGateway.offerSlots(
                             getResourceID(),
                             reservedSlots,
