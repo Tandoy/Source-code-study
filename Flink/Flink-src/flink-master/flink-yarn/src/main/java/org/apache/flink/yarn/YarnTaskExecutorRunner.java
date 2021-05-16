@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.util.Map;
 
 /** This class is the executable entry point for running a TaskExecutor in a YARN container. */
+// 当slotPool向RM中的SlotManager申请资源后，SlotManager会向Yarn的RM申请一个worker(也就是TaskExecutor/TaskManager)
 public class YarnTaskExecutorRunner {
 
     protected static final Logger LOG = LoggerFactory.getLogger(YarnTaskExecutorRunner.class);
@@ -63,7 +64,7 @@ public class YarnTaskExecutorRunner {
         EnvironmentInformation.logEnvironmentInfo(LOG, "YARN TaskExecutor runner", args);
         SignalHandler.register(LOG);
         JvmShutdownSafeguard.installAsShutdownHook(LOG);
-
+        // run
         runTaskManagerSecurely(args);
     }
 

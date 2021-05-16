@@ -383,6 +383,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     @Override
     public void onStart() throws Exception {
         try {
+            // 最后启动一个TaskExecutor服务
             startTaskExecutorServices();
         } catch (Throwable t) {
             final TaskManagerException exception =
