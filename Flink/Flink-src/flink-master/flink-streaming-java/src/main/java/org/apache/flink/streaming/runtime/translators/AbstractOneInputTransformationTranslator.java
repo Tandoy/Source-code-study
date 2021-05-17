@@ -40,6 +40,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * A utility base class for one input {@link Transformation transformations} that provides a
  * function for configuring common graph properties.
  */
+// streamGraph主要包括两部分：StreamNode、StreamEdge
 abstract class AbstractOneInputTransformationTranslator<IN, OUT, OP extends Transformation<OUT>>
         extends SimpleTransformationTranslator<OUT, OP> {
 
@@ -60,6 +61,7 @@ abstract class AbstractOneInputTransformationTranslator<IN, OUT, OP extends Tran
         final int transformationId = transformation.getId();
         final ExecutionConfig executionConfig = streamGraph.getExecutionConfig();
 
+        // 添加 StreamNode
         streamGraph.addOperator(
                 transformationId,
                 slotSharingGroup,
@@ -87,6 +89,7 @@ abstract class AbstractOneInputTransformationTranslator<IN, OUT, OP extends Tran
                 "Expected exactly one input transformation but found "
                         + parentTransformations.size());
 
+        // 添加 StreamEdge
         for (Integer inputId : context.getStreamNodeIds(parentTransformations.get(0))) {
             streamGraph.addEdge(inputId, transformationId, 0);
         }

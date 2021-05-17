@@ -592,6 +592,7 @@ public class DataStream<T> {
      */
     public <R> SingleOutputStreamOperator<R> map(
             MapFunction<T, R> mapper, TypeInformation<R> outputType) {
+        // 返回一个新的 DataStream，StreamMap 为 StreamOperator 的实现类
         return transform("Map", outputType, new StreamMap<>(clean(mapper)));
     }
 
@@ -1205,7 +1206,7 @@ public class DataStream<T> {
         @SuppressWarnings({"unchecked", "rawtypes"})
         SingleOutputStreamOperator<R> returnStream =
                 new SingleOutputStreamOperator(environment, resultTransform);
-
+        // 将用户算子map、flatmap、filter 等，构造出一棵 StreamTransformation 树
         getExecutionEnvironment().addOperator(resultTransform);
 
         return returnStream;

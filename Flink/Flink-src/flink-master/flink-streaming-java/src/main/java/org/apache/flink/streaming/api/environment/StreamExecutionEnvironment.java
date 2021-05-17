@@ -1838,7 +1838,7 @@ public class StreamExecutionEnvironment {
         // 对jobName进行校验不能为空
         Preconditions.checkNotNull(jobName, "Streaming Job name should not be null.");
         // 获取StreamGraph，接着执行
-        // TODO 生成StreamGraph暂不分析
+        // 生成StreamGraph：根据用户通过 Stream API 编写的代码生成的最初的图。用来表示程序的拓扑结构
         return execute(getStreamGraph(jobName));
     }
 
@@ -2015,8 +2015,10 @@ public class StreamExecutionEnvironment {
      * @param clearTransformations Whether or not to clear previously registered transformations
      * @return The streamgraph representing the transformations
      */
+    // 根据用户的代码逻辑生成StreamGraph
     @Internal
     public StreamGraph getStreamGraph(String jobName, boolean clearTransformations) {
+        //  1.通过StreamGraph构造器以及jobName生成StreamGraph
         StreamGraph streamGraph = getStreamGraphGenerator().setJobName(jobName).generate();
         if (clearTransformations) {
             this.transformations.clear();
@@ -2025,6 +2027,8 @@ public class StreamExecutionEnvironment {
     }
 
     private StreamGraphGenerator getStreamGraphGenerator() {
+        // transformations：存放用户算子的集合
+        // 当用户代码中只有source/sink时会报此错
         if (transformations.size() <= 0) {
             throw new IllegalStateException(
                     "No operators defined in streaming topology. Cannot execute.");

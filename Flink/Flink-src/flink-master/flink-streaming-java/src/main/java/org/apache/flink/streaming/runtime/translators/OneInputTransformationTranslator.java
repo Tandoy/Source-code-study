@@ -59,6 +59,7 @@ public final class OneInputTransformationTranslator<IN, OUT>
         return ids;
     }
 
+    // 类似于map、flatMap等算子的stream转换
     @Override
     public Collection<Integer> translateForStreamingInternal(
             final OneInputTransformation<IN, OUT> transformation, final Context context) {

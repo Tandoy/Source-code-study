@@ -291,13 +291,18 @@ public class StreamGraphGenerator {
     }
 
     public StreamGraph generate() {
+        // 1.直接创建
         streamGraph = new StreamGraph(executionConfig, checkpointConfig, savepointRestoreSettings);
+        // 2.执行模式：stream/batch
         shouldExecuteInBatchMode = shouldExecuteInBatchMode(runtimeExecutionMode);
         configureStreamGraph(streamGraph);
 
         alreadyTransformed = new HashMap<>();
 
         for (Transformation<?> transformation : transformations) {
+            // 3.所有的 transformation 都会存到 env 中，调用 execute 时遍历该 list 生成 StreamGraph
+            // 对每个 transformation 进行转换，转换成 StreamGraph 中的 StreamNode 和 StreamEdge
+            // 返回值为该 transform 的 id 集合，通常大小为 1 个（除 FeedbackTransformation）
             transform(transformation);
         }
 
@@ -417,6 +422,7 @@ public class StreamGraphGenerator {
      * delegates to one of the transformation specific methods.
      */
     private Collection<Integer> transform(Transformation<?> transform) {
+        // 1.在缓存中查找当前算子是否存在
         if (alreadyTransformed.containsKey(transform)) {
             return alreadyTransformed.get(transform);
         }
@@ -424,6 +430,7 @@ public class StreamGraphGenerator {
         LOG.debug("Transforming " + transform);
 
         if (transform.getMaxParallelism() <= 0) {
+            // 2.设置当前算子并行度，若用户没有设置则使用job最大并行度
 
             // if the max parallelism hasn't been set, then first use the job wide max parallelism
             // from the ExecutionConfig.
@@ -434,15 +441,18 @@ public class StreamGraphGenerator {
         }
 
         // call at least once to trigger exceptions about MissingTypeInfo
+        // 3.检查当前算子输出类型是否异常
         transform.getOutputType();
 
         @SuppressWarnings("unchecked")
+        // 4.拿到算子的id
         final TransformationTranslator<?, Transformation<?>> translator =
                 (TransformationTranslator<?, Transformation<?>>)
                         translatorMap.get(transform.getClass());
 
         Collection<Integer> transformedIds;
         if (translator != null) {
+            // 5.返回transformedId
             transformedIds = translate(translator, transform);
         } else {
             transformedIds = legacyTransform(transform);
@@ -450,10 +460,11 @@ public class StreamGraphGenerator {
 
         // need this check because the iterate transformation adds itself before
         // transforming the feedback edges
+        // 6.缓存中没有的放入缓存
         if (!alreadyTransformed.containsKey(transform)) {
             alreadyTransformed.put(transform, transformedIds);
         }
-
+        // 7.返回transformedId集合
         return transformedIds;
     }
 
@@ -689,6 +700,7 @@ public class StreamGraphGenerator {
     private Collection<Integer> translate(
             final TransformationTranslator<?, Transformation<?>> translator,
             final Transformation<?> transform) {
+        // 非空检验
         checkNotNull(translator);
         checkNotNull(transform);
 
@@ -708,7 +720,7 @@ public class StreamGraphGenerator {
 
         final TransformationTranslator.Context context =
                 new ContextImpl(this, streamGraph, slotSharingGroup, configuration);
-
+        // 不同执行模式的转换
         return shouldExecuteInBatchMode
                 ? translator.translateForBatch(transform, context)
                 : translator.translateForStreaming(transform, context);

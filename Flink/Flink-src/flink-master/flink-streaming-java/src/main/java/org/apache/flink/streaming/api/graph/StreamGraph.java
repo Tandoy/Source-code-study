@@ -584,6 +584,7 @@ public class StreamGraph implements Pipeline {
             OutputTag outputTag,
             ShuffleMode shuffleMode) {
 
+        // 当上游是侧输出流时，要递归调用
         if (virtualSideOutputNodes.containsKey(upStreamVertexID)) {
             int virtualId = upStreamVertexID;
             upStreamVertexID = virtualSideOutputNodes.get(virtualId).f0;
@@ -598,6 +599,7 @@ public class StreamGraph implements Pipeline {
                     null,
                     outputTag,
                     shuffleMode);
+            // 当上游是 partition 时，递归调用
         } else if (virtualPartitionNodes.containsKey(upStreamVertexID)) {
             int virtualId = upStreamVertexID;
             upStreamVertexID = virtualPartitionNodes.get(virtualId).f0;
@@ -614,11 +616,13 @@ public class StreamGraph implements Pipeline {
                     outputTag,
                     shuffleMode);
         } else {
+            // 真正构建 StreamEdge
             StreamNode upstreamNode = getStreamNode(upStreamVertexID);
             StreamNode downstreamNode = getStreamNode(downStreamVertexID);
 
             // If no partitioner was specified and the parallelism of upstream and downstream
             // operator matches use forward partitioning, use rebalance otherwise.
+            // 若没有设置分区策略，则默认为ForwardPartitioner（一对一）或者RebalancePartitioner（轮询）
             if (partitioner == null
                     && upstreamNode.getParallelism() == downstreamNode.getParallelism()) {
                 partitioner = new ForwardPartitioner<Object>();
@@ -627,6 +631,7 @@ public class StreamGraph implements Pipeline {
             }
 
             if (partitioner instanceof ForwardPartitioner) {
+                // 在ForwardPartitioner不允许上下游并行度不一致
                 if (upstreamNode.getParallelism() != downstreamNode.getParallelism()) {
                     throw new UnsupportedOperationException(
                             "Forward partitioning does not allow "
@@ -643,6 +648,7 @@ public class StreamGraph implements Pipeline {
             }
 
             if (shuffleMode == null) {
+                // 从PIPELINED、BATCH中任意选择一种Shuffle模式
                 shuffleMode = ShuffleMode.UNDEFINED;
             }
 
@@ -655,6 +661,7 @@ public class StreamGraph implements Pipeline {
                             outputTag,
                             shuffleMode);
 
+            // 将该 StreamEdge 添加到上游的输出，下游的输入
             getStreamNode(edge.getSourceId()).addOutEdge(edge);
             getStreamNode(edge.getTargetId()).addInEdge(edge);
         }
