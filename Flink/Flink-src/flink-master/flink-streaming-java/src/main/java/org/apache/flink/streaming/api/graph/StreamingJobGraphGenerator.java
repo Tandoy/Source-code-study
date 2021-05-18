@@ -158,6 +158,14 @@ public class StreamingJobGraphGenerator {
         jobGraph = new JobGraph(jobID, streamGraph.getJobName());
     }
 
+    /**
+     * 每个 JobVertex 都会对应一个可序列化的 StreamConfig, 用来发送给 JobManager 和 TaskManager。最后在 TaskManager 中起 Task 时,需要从这里面反序列化出所需要的配置信息, 其中就包括了含有用户代码的 StreamOperator。
+     * setChaining 会对 source 调用 createChain 方法，该方法会递归调用下游节点，从而构建出 node chains。createChain 会分析当前节点的出边，根据 Operator Chains 中的 chainable 条件，
+     * 将出边分成 chainalbe 和 noChainable 两类，并分别递归调用自身方法。之后会将StreamNode 中的配置信息序列化到 StreamConfig 中。如果当前不是 chain 中的子节点，则会构建 JobVertex 和 JobEdge 相连。
+     * 如果是 chain 中的子节点，则会将 StreamConfig 添加到该chain 的 config 集合中。一个 node chains，除了 headOfChain node 会生成对应的 JobVertex，
+     * 其余的 nodes 都是以序列化的形式写入到 StreamConfig 中，并保存到 headOfChain 的CHAINED_TASK_CONFIG 配置项中。直到部署时，才会取出并生成对应的 ChainOperators。
+     * @return
+     */
     private JobGraph createJobGraph() {
         preValidate();
         jobGraph.setJobType(streamGraph.getJobType());

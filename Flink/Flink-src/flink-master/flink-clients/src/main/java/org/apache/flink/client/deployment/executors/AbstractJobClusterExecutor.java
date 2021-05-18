@@ -68,7 +68,10 @@ public class AbstractJobClusterExecutor<
             @Nonnull final ClassLoader userCodeClassloader)
             throws Exception {
         // 1.将streamGraph转换成jobGraph
-        // TODO 转换过程暂不分析
+            // StreamGraph 转变成 JobGraph过程：
+            // StreamNode 转成 JobVertex。
+            // StreamEdge 转成 JobEdge。
+            // JobEdge 和 JobVertex 之间创建 IntermediateDataSet 来连接。
         final JobGraph jobGraph = PipelineExecutorUtils.getJobGraph(pipeline, configuration);
         // 2.创建集群描述器，其实也就是创建YarnClient、初始化YarnClient以及启动一个YarnClient
         try (final ClusterDescriptor<ClusterID> clusterDescriptor =
