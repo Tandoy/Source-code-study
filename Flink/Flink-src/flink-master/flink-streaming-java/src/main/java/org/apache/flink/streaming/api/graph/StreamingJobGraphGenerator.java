@@ -168,6 +168,7 @@ public class StreamingJobGraphGenerator {
      */
     private JobGraph createJobGraph() {
         preValidate();
+        // streaming 模式下，调度模式是所有节点（vertices）一起启动
         jobGraph.setJobType(streamGraph.getJobType());
 
         jobGraph.enableApproximateLocalRecovery(
@@ -175,6 +176,8 @@ public class StreamingJobGraphGenerator {
 
         // Generate deterministic hashes for the nodes in order to identify them across
         // submission iff they didn't change.
+        // 广度优先遍历 StreamGraph 并且为每个 SteamNode 生成 hash id，
+        // 保证如果提交的拓扑没有改变，则每次生成的 hash 都是一样的
         Map<Integer, byte[]> hashes =
                 defaultStreamGraphHasher.traverseStreamGraphAndGenerateHashes(streamGraph);
 
@@ -184,10 +187,13 @@ public class StreamingJobGraphGenerator {
             legacyHashes.add(hasher.traverseStreamGraphAndGenerateHashes(streamGraph));
         }
 
+        // 生成 JobVertex，JobEdge 等，并尽可能地将多个节点 chain 在一起
         setChaining(hashes, legacyHashes);
 
+        // 将每个 JobVertex 的入边集合也序列化到该 JobVertex 的 StreamConfig 中
         setPhysicalEdges();
 
+        // 根据 group name，为每个 JobVertex 指定所属的 SlotSharingGroup
         setSlotSharingAndCoLocation();
 
         setManagedMemoryFraction(
@@ -214,6 +220,7 @@ public class StreamingJobGraphGenerator {
 
         // set the ExecutionConfig last when it has been finalized
         try {
+            // 将 StreamGraph 的 ExecutionConfig 序列化到 JobGraph 的配置中
             jobGraph.setExecutionConfig(streamGraph.getExecutionConfig());
         } catch (IOException e) {
             throw new IllegalConfigurationException(
@@ -382,6 +389,7 @@ public class StreamingJobGraphGenerator {
                         .collect(Collectors.toList());
 
         // iterate over a copy of the values, because this map gets concurrently modified
+        // 从source端开始chain
         for (OperatorChainInfo info : initialEntryPoints) {
             createChain(
                     info.getStartNodeId(),
