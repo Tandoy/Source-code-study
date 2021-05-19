@@ -872,6 +872,7 @@ public class JobMaster extends PermanentlyFencedRpcEndpoint<JobMasterId>
                 jobGraph.getJobID(),
                 getFencingToken());
         // 3.开始调度
+         // 在dispatch创建中就会创建JobMaster，并且在创建JobMaster过程中会根据jobGraph生成ExecutionJobGraph，这里调度就可以拿到ExecutionJobGraph执行开始部署task进行执行
         startScheduling();
     }
 

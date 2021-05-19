@@ -28,6 +28,7 @@ class DefaultExecutionVertexOperations implements ExecutionVertexOperations {
 
     @Override
     public void deploy(final ExecutionVertex executionVertex) throws JobException {
+        // executionVertex自己开始部署
         executionVertex.deploy();
     }
 

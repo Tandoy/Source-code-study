@@ -174,6 +174,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
                 "Starting scheduling with scheduling strategy [{}]",
                 schedulingStrategy.getClass().getName());
         transitionToRunning();
+        // 根据默认调度策略进行调度，1.12默认采用PipelinedRegion（局部调度策略）
         schedulingStrategy.startScheduling();
     }
 
@@ -407,6 +408,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
     private void waitForAllSlotsAndDeploy(final List<DeploymentHandle> deploymentHandles) {
         FutureUtils.assertNoException(
+                // 根据部署资源要求开始分配资源并开始部署
                 assignAllResources(deploymentHandles).handle(deployAll(deploymentHandles)));
     }
 
@@ -436,6 +438,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
                 checkState(slotAssigned.isDone());
 
                 FutureUtils.assertNoException(
+                        // 部署
                         slotAssigned.handle(deployOrHandleError(deploymentHandle)));
             }
             return null;
@@ -508,6 +511,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
             final DeploymentHandle deploymentHandle) {
         final ExecutionVertexVersion requiredVertexVersion =
                 deploymentHandle.getRequiredVertexVersion();
+        // 拿到所有的executionVertexId（注意这里不是：executionJobVertexId而是具体的算子）
         final ExecutionVertexID executionVertexId = requiredVertexVersion.getExecutionVertexId();
 
         return (ignored, throwable) -> {
@@ -520,6 +524,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
             }
 
             if (throwable == null) {
+                // 开始安全部署executionVertexId
                 deployTaskSafe(executionVertexId);
             } else {
                 handleTaskDeploymentFailure(executionVertexId, throwable);

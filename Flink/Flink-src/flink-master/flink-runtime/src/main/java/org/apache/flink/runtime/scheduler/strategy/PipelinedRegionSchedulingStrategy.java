@@ -149,12 +149,15 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
         }
     }
 
+    // 开始调度
     @Override
     public void startScheduling() {
+        // 1.拿到所有划分的局部
         final Set<SchedulingPipelinedRegion> sourceRegions =
                 IterableUtils.toStream(schedulingTopology.getAllPipelinedRegions())
                         .filter(this::isSourceRegion)
                         .collect(Collectors.toSet());
+        // 调度
         maybeScheduleRegions(sourceRegions);
     }
 
@@ -226,6 +229,7 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
 
         final Map<ConsumedPartitionGroup, Boolean> consumableStatusCache = new HashMap<>();
         for (SchedulingPipelinedRegion region : regionsSorted) {
+            // 循环遍历对每个局部进行调度
             maybeScheduleRegion(region, consumableStatusCache);
         }
     }
@@ -244,6 +248,7 @@ public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
         final List<ExecutionVertexDeploymentOption> vertexDeploymentOptions =
                 SchedulingStrategyUtils.createExecutionVertexDeploymentOptions(
                         regionVerticesSorted.get(region), id -> deploymentOption);
+        // 调度前准备：根据执行顶点开始计算资源并部署
         schedulerOperations.allocateSlotsAndDeploy(vertexDeploymentOptions);
     }
 

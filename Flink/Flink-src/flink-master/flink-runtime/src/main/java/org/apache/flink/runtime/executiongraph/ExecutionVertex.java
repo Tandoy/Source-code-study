@@ -424,6 +424,7 @@ public class ExecutionVertex
     }
 
     public void deploy() throws JobException {
+        // 当前executionVertex部署
         currentExecution.deploy();
     }
 
