@@ -771,6 +771,7 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
                 new ArrayList<>(topologiallySorted.size());
         final long createTimestamp = System.currentTimeMillis();
 
+        // 循环遍历jobVertex作业顶点
         for (JobVertex jobVertex : topologiallySorted) {
 
             if (jobVertex.isInputVertex() && !jobVertex.isStoppable()) {
@@ -781,6 +782,7 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
                     parallelismStore.getParallelismInfo(jobVertex.getID());
 
             // create the execution job vertex and attach it to the graph
+            // 实例化执行图节点，根据每⼀个 job vertex，创建对应的 ExecutionVertex
             ExecutionJobVertex ejv =
                     new ExecutionJobVertex(
                             this,
@@ -791,6 +793,7 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
                             parallelismInfo,
                             initialAttemptCounts.getAttemptCounts(jobVertex.getID()));
 
+            // 将创建的 ExecutionJobVertex 与前置的 IntermediateResult 连接起来
             ejv.connectToPredecessors(this.intermediateResults);
 
             ExecutionJobVertex previousTask = this.tasks.putIfAbsent(jobVertex.getID(), ejv);

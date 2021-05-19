@@ -73,6 +73,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class DefaultExecutionGraphBuilder {
 
+    // 根据JobGraph 生成对应的 ExecutionGraph最终方法
     public static DefaultExecutionGraph buildGraph(
             JobGraph jobGraph,
             Configuration jobManagerConfig,
@@ -96,6 +97,7 @@ public class DefaultExecutionGraphBuilder {
             VertexParallelismStore vertexParallelismStore)
             throws JobExecutionException, JobException {
 
+        // 相关校验以及信息获取
         checkNotNull(jobGraph, "job graph cannot be null");
 
         final String jobName = jobGraph.getName();
@@ -118,6 +120,7 @@ public class DefaultExecutionGraphBuilder {
                         jobManagerConfig);
 
         // create a new execution graph, if none exists so far
+        // 先创建executionGraph对象
         final DefaultExecutionGraph executionGraph;
         try {
             executionGraph =
@@ -185,6 +188,7 @@ public class DefaultExecutionGraphBuilder {
                 (System.nanoTime() - initMasterStart) / 1_000_000);
 
         // topologically sort the job vertices and attach the graph to the existing one
+        // 对 JobGraph 进行拓扑排序，获取所有的 JobVertex 列表
         List<JobVertex> sortedTopology = jobGraph.getVerticesSortedTopologicallyFromSources();
         if (log.isDebugEnabled()) {
             log.debug(
@@ -193,6 +197,7 @@ public class DefaultExecutionGraphBuilder {
                     jobName,
                     jobId);
         }
+        // 将排序完成后的拓扑图添加到executionGraph中
         executionGraph.attachJobGraph(sortedTopology);
 
         if (log.isDebugEnabled()) {

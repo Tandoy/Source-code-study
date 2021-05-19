@@ -86,6 +86,7 @@ public class DefaultJobMasterServiceFactory implements JobMasterServiceFactory {
             long initializationTimestamp)
             throws Exception {
         // 创建JobMaster
+            // client 生成 JobGraph 之后，就通过 submitJob 提交给 JobManager，JobManager 会根据JobGraph 生成对应的 ExecutionGraph。
         final JobMaster jobMaster =
                 new JobMaster(
                         rpcService,

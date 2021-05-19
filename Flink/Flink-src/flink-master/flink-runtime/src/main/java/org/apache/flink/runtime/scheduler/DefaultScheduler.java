@@ -115,7 +115,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
             final JobStatusListener jobStatusListener,
             final ExecutionGraphFactory executionGraphFactory)
             throws Exception {
-
+        // 调用父类构造方法
         super(
                 log,
                 jobGraph,

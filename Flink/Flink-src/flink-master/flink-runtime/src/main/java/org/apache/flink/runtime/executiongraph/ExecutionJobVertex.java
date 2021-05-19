@@ -370,10 +370,12 @@ public class ExecutionJobVertex
 
     // ---------------------------------------------------------------------------------------------
 
+    // 将执行顶点与中间结果集连接
     public void connectToPredecessors(
             Map<IntermediateDataSetID, IntermediateResult> intermediateDataSets)
             throws JobException {
 
+        // 获取输入的 JobEdge 列表
         List<JobEdge> inputs = jobVertex.getInputs();
 
         if (LOG.isDebugEnabled()) {
@@ -383,6 +385,7 @@ public class ExecutionJobVertex
                             jobVertex.getID(), jobVertex.getName(), inputs.size()));
         }
 
+        // 循环遍历每条作业边
         for (int num = 0; num < inputs.size(); num++) {
             JobEdge edge = inputs.get(num);
 
@@ -417,8 +420,10 @@ public class ExecutionJobVertex
                                 + edge.getSourceId());
             }
 
+            // 将 IntermediateResult 加入到当前 ExecutionJobVertex 的输入中。
             this.inputs.add(ires);
 
+            // 将 ExecutionVertex 与 IntermediateResult 关联起来
             EdgeManagerBuildUtil.connectVertexToResult(this, ires, edge.getDistributionPattern());
         }
     }

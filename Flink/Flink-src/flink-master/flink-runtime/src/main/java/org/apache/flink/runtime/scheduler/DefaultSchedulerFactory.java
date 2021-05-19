@@ -114,6 +114,7 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
                         shuffleMaster,
                         partitionTracker);
 
+        // 创建默认Schedule
         return new DefaultScheduler(
                 log,
                 jobGraph,

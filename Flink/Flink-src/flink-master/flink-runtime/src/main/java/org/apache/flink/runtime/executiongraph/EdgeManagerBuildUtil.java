@@ -58,6 +58,7 @@ public class EdgeManagerBuildUtil {
         }
     }
 
+    // 在执行顶点与中间结果集插入执行边
     private static void connectAllToAll(
             ExecutionVertex[] taskVertices, IntermediateResult intermediateResult) {
 
