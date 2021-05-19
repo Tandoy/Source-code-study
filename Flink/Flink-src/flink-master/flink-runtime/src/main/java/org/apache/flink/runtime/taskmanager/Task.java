@@ -553,6 +553,7 @@ public class Task
 
     /** Starts the task's thread. */
     public void startTaskThread() {
+        // 由于是线程所以直接看 run方法即可
         executingThread.start();
     }
 
@@ -723,6 +724,7 @@ public class Task
             FlinkSecurityManager.monitorUserSystemExitForCurrentThread();
             try {
                 // now load and instantiate the task's invokable code
+                // 加载和实例化用户代码
                 invokable =
                         loadAndInstantiateInvokable(
                                 userCodeClassLoader.asClassLoader(), nameOfInvokableClass, env);
@@ -773,6 +775,7 @@ public class Task
             FlinkSecurityManager.monitorUserSystemExitForCurrentThread();
             try {
                 // run the invokable
+                // 开始执行
                 invokable.invoke();
             } finally {
                 FlinkSecurityManager.unmonitorUserSystemExitForCurrentThread();

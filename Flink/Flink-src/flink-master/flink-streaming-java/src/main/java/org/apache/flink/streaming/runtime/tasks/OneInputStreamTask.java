@@ -202,6 +202,7 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
         public void emitRecord(StreamRecord<IN> record) throws Exception {
             numRecordsIn.inc();
             operator.setKeyContextElement1(record);
+            // 根据不同的算子调用不同算子的processElement方法
             operator.processElement(record);
         }
 

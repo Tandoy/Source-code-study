@@ -63,6 +63,7 @@ public final class StreamOneInputProcessor<IN> implements StreamInputProcessor {
 
     @Override
     public InputStatus processInput() throws Exception {
+        // 以map为例：处理每一条
         InputStatus status = input.emitNext(output);
 
         if (status == InputStatus.END_OF_INPUT) {

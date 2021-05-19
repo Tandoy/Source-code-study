@@ -35,6 +35,8 @@ public class StreamMap<IN, OUT> extends AbstractUdfStreamOperator<OUT, MapFuncti
 
     @Override
     public void processElement(StreamRecord<IN> element) throws Exception {
+        // userFunction.map() 就是用户定义的 MapFunction 里的 map 方法
+        // 数据经过用户定义的 map 算子，通过采集器往下游发送
         output.collect(element.replace(userFunction.map(element.getValue())));
     }
 }

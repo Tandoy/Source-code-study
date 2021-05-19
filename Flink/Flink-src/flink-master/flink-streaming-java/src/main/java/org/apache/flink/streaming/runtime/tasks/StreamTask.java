@@ -607,6 +607,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         }
     }
 
+    // 执行用户代码方法
     @Override
     public final void invoke() throws Exception {
         try {
@@ -620,6 +621,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             ensureNotCanceled();
 
             // let the task do its work
+            // run
             runMailboxLoop();
 
             // if this left the run() method cleanly despite the fact that this was canceled,

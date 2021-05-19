@@ -87,6 +87,7 @@ public abstract class AbstractStreamTaskNetworkInput<
     @Override
     public InputStatus emitNext(DataOutput<T> output) throws Exception {
 
+        // 一直循环处理record
         while (true) {
             // get the stream element from the deserializer
             if (currentRecordDeserializer != null) {
@@ -102,6 +103,7 @@ public abstract class AbstractStreamTaskNetworkInput<
                 }
 
                 if (result.isFullRecord()) {
+                    // 具体处理每条record方法
                     processElement(deserializationDelegate.getInstance(), output);
                     return InputStatus.MORE_AVAILABLE;
                 }
@@ -131,9 +133,10 @@ public abstract class AbstractStreamTaskNetworkInput<
 
     private void processElement(StreamElement recordOrMark, DataOutput<T> output) throws Exception {
         if (recordOrMark.isRecord()) {
+            // 处理record
             output.emitRecord(recordOrMark.asRecord());
         } else if (recordOrMark.isWatermark()) {
-            statusWatermarkValve.inputWatermark(
+            statusWatermarkValve.inputWatermark( //watermark也是特殊的一条记录在flink处理中
                     recordOrMark.asWatermark(), flattenedChannelIndices.get(lastChannel), output);
         } else if (recordOrMark.isLatencyMarker()) {
             output.emitLatencyMarker(recordOrMark.asLatencyMarker());
