@@ -87,9 +87,9 @@ public class HiveIncrementalPuller {
     public String targetTable;
     @Parameter(names = {"--tmpdb"})
     public String tmpDb = "tmp";
-    @Parameter(names = {"--fromCommitTime"})
+    @Parameter(names = {"--fromCommitTime"}) // 提取更改的记录的起始时间点
     public String fromCommitTime;
-    @Parameter(names = {"--maxCommits"})
+    @Parameter(names = {"--maxCommits"}) // 要包含在拉取中的提交数，将此设置为-1将包括从fromCommitTime开始的所有提交。设置fromCommitTime=0和maxCommits=-1将提取整个源数据集，可用于启动Backfill。
     public int maxCommits = 3;
     @Parameter(names = {"--help", "-h"}, help = true)
     public Boolean help = false;
