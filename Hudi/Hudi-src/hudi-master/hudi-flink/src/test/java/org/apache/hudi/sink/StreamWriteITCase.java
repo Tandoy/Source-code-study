@@ -75,6 +75,7 @@ public class StreamWriteITCase extends TestLogger {
 
   private static final Map<String, List<String>> EXPECTED = new HashMap<>();
 
+  // 1.模拟数据
   static {
     EXPECTED.put("par1", Arrays.asList("id1,par1,id1,Danny,23,1000,par1", "id2,par1,id2,Stephen,33,2000,par1"));
     EXPECTED.put("par2", Arrays.asList("id3,par2,id3,Julian,53,3000,par2", "id4,par2,id4,Fabian,31,4000,par2"));
@@ -87,12 +88,15 @@ public class StreamWriteITCase extends TestLogger {
 
   @Test
   public void testWriteToHoodie() throws Exception {
+    // 配置文件以及流式环境创建
     Configuration conf = TestConfigurations.getDefaultConf(tempFile.getAbsolutePath());
     StreamExecutionEnvironment execEnv = StreamExecutionEnvironment.getExecutionEnvironment();
     execEnv.getConfig().disableObjectReuse();
     execEnv.setParallelism(4);
     // set up checkpoint interval
+    // ck设置
     execEnv.enableCheckpointing(4000, CheckpointingMode.EXACTLY_ONCE);
+    // 只允许同时进行一个检查点
     execEnv.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
 
     // Read from file source
@@ -197,6 +201,8 @@ public class StreamWriteITCase extends TestLogger {
         .setParallelism(4)
 
         // Commit can only be executed once, so make it one parallelism
+            // 并行度为1的sink
+            // TODO 其实就是要研究CommitSink的实现逻辑
         .addSink(new CommitSink())
         .name("commit_sink")
         .uid("commit_sink_uid")
