@@ -80,6 +80,12 @@ import java.util.concurrent.Executors;
  * write-to-sink (c) Schedule Compactions if needed (d) Conditionally Sync to Hive each cycle. For MOR table with
  * continuous mode enabled, a separate compactor thread is allocated to execute compactions
  */
+
+/**
+ * Hudi提供的从kafka摄取topic至Hudi
+ * 源码研读：
+ *  1.
+ */
 public class HoodieDeltaStreamer implements Serializable {
 
   private static final long serialVersionUID = 1L;
@@ -88,12 +94,15 @@ public class HoodieDeltaStreamer implements Serializable {
   public static final String CHECKPOINT_KEY = "deltastreamer.checkpoint.key";
   public static final String CHECKPOINT_RESET_KEY = "deltastreamer.checkpoint.reset_key";
 
+  // cfg这个字段的生命周期仅存于调用者的内存中而不会写到磁盘里持久化
   protected final transient Config cfg;
 
   private final TypedProperties properties;
 
+  // 同步服务
   protected transient Option<DeltaSyncService> deltaSyncService;
 
+  // 执行程序
   private final Option<BootstrapExecutor> bootstrapExecutor;
 
   public static final String DELTASYNC_POOL_NAME = "hoodiedeltasync";
@@ -201,10 +210,12 @@ public class HoodieDeltaStreamer implements Serializable {
     }
   }
 
+  // 以下为同步的相关配置项
   public static class Config implements Serializable {
     public static final String DEFAULT_DFS_SOURCE_PROPERTIES = "file://" + System.getProperty("user.dir")
         + "/src/test/resources/delta-streamer-config/dfs-source.properties";
 
+    // 数据存放路径
     @Parameter(names = {"--target-base-path"},
         description = "base path for the target hoodie table. "
             + "(Will be created if did not exist first time around. If exists, expected to be a hoodie table)",
@@ -213,35 +224,35 @@ public class HoodieDeltaStreamer implements Serializable {
 
     // TODO: How to obtain hive configs to register?
     @Parameter(names = {"--target-table"}, description = "name of the target table", required = true)
-    public String targetTableName;
+    public String targetTableName; // 目标表名
 
     @Parameter(names = {"--table-type"}, description = "Type of table. COPY_ON_WRITE (or) MERGE_ON_READ", required = true)
-    public String tableType;
+    public String tableType; // 表类型 COW/MOR
 
     @Parameter(names = {"--base-file-format"}, description = "File format for the base files. PARQUET (or) HFILE", required = false)
-    public String baseFileFormat = "PARQUET";
+    public String baseFileFormat = "PARQUET"; // 数据存储格式PARQUET/HFILE
 
     @Parameter(names = {"--props"}, description = "path to properties file on localfs or dfs, with configurations for "
         + "hoodie client, schema provider, key generator and data source. For hoodie client props, sane defaults are "
         + "used, but recommend use to provide basic things like metrics endpoints, hive configs etc. For sources, refer"
         + "to individual classes, for supported properties."
         + " Properties in this file can be overridden by \"--hoodie-conf\"")
-    public String propsFilePath = DEFAULT_DFS_SOURCE_PROPERTIES;
+    public String propsFilePath = DEFAULT_DFS_SOURCE_PROPERTIES; // kafka以及同步至Hudi相关分区、主键、offset等相关配置文件地址
 
     @Parameter(names = {"--hoodie-conf"}, description = "Any configuration that can be set in the properties file "
         + "(using the CLI parameter \"--props\") can also be passed command line using this parameter. This can be repeated",
             splitter = IdentitySplitter.class)
-    public List<String> configs = new ArrayList<>();
+    public List<String> configs = new ArrayList<>(); // 此处配置也可直接上一个配置文件中
 
     @Parameter(names = {"--source-class"},
         description = "Subclass of org.apache.hudi.utilities.sources to read data. "
             + "Built-in options: org.apache.hudi.utilities.sources.{JsonDFSSource (default), AvroDFSSource, "
             + "JsonKafkaSource, AvroKafkaSource, HiveIncrPullSource}")
-    public String sourceClassName = JsonDFSSource.class.getName();
+    public String sourceClassName = JsonDFSSource.class.getName(); // 源数据读取格式 json/avro...
 
     @Parameter(names = {"--source-ordering-field"}, description = "Field within source record to decide how"
         + " to break ties between records with same key in input data. Default: 'ts' holding unix timestamp of record")
-    public String sourceOrderingField = "ts";
+    public String sourceOrderingField = "ts"; // 若存在两条主键相同的数据，默认按照ts字段来排序摄取最新一条入湖
 
     @Parameter(names = {"--payload-class"}, description = "subclass of HoodieRecordPayload, that works off "
         + "a GenericRecord. Implement your own, if you want to do something other than overwriting existing value")
@@ -253,7 +264,7 @@ public class HoodieDeltaStreamer implements Serializable {
         + "Source (See org.apache.hudi.utilities.sources.Source) implementation can implement their own SchemaProvider."
         + " For Sources that return Dataset<Row>, the schema is obtained implicitly. "
         + "However, this CLI option allows overriding the schemaprovider returned by Source.")
-    public String schemaProviderClassName = null;
+    public String schemaProviderClassName = null; // hudi schema读取校验类
 
     @Parameter(names = {"--transformer-class"},
         description = "A subclass or a list of subclasses of org.apache.hudi.utilities.transform.Transformer"
@@ -261,65 +272,65 @@ public class HoodieDeltaStreamer implements Serializable {
             + "writing. Default : Not set. E:g - org.apache.hudi.utilities.transform.SqlQueryBasedTransformer (which "
             + "allows a SQL query templated to be passed as a transformation function). "
             + "Pass a comma-separated list of subclass names to chain the transformations.")
-    public List<String> transformerClassNames = null;
+    public List<String> transformerClassNames = null; // 可对源数据使用sql进行transformer，然后再入湖
 
     @Parameter(names = {"--source-limit"}, description = "Maximum amount of data to read from source. "
         + "Default: No limit, e.g: DFS-Source => max bytes to read, Kafka-Source => max events to read")
-    public long sourceLimit = Long.MAX_VALUE;
+    public long sourceLimit = Long.MAX_VALUE; // 源数据读取数据量限制
 
     @Parameter(names = {"--op"}, description = "Takes one of these values : UPSERT (default), INSERT (use when input "
         + "is purely new data/inserts to gain speed)", converter = OperationConverter.class)
-    public WriteOperationType operation = WriteOperationType.UPSERT;
+    public WriteOperationType operation = WriteOperationType.UPSERT; // 写入模式 UPSERT/INSERT/bulk_insert....
 
     @Parameter(names = {"--filter-dupes"},
         description = "Should duplicate records from source be dropped/filtered out before insert/bulk-insert")
-    public Boolean filterDupes = false;
+    public Boolean filterDupes = false; // 是否在插入/批量插入之前删除/过滤掉源中的重复记录,默认false
 
     //will abandon in the future version, recommended use --enable-sync
     @Parameter(names = {"--enable-hive-sync"}, description = "Enable syncing to hive")
-    public Boolean enableHiveSync = false;
+    public Boolean enableHiveSync = false; // hive同步
 
     @Parameter(names = {"--enable-sync"}, description = "Enable syncing meta")
-    public Boolean enableMetaSync = false;
+    public Boolean enableMetaSync = false; // hive同步
 
     @Parameter(names = {"--sync-tool-classes"}, description = "Meta sync client tool, using comma to separate multi tools")
-    public String syncClientToolClass = HiveSyncTool.class.getName();
+    public String syncClientToolClass = HiveSyncTool.class.getName(); // 若开启hive同步，则需要指定HiveSyncTool同步工具类
 
     @Parameter(names = {"--max-pending-compactions"},
         description = "Maximum number of outstanding inflight/requested compactions. Delta Sync will not happen unless"
-            + "outstanding compactions is less than this number")
+            + "outstanding compactions is less than this number") // 未完成的进行中/请求的压缩的最大数量。除非未完成的压缩小于此数字，否则不会发生增量同步；其实就是限制未完成的compaction数量
     public Integer maxPendingCompactions = 5;
 
     @Parameter(names = {"--continuous"}, description = "Delta Streamer runs in continuous mode running"
         + " source-fetch -> Transform -> Hudi Write in loop")
-    public Boolean continuousMode = false;
+    public Boolean continuousMode = false; // 是否spark程序一直摄取数据运行，默认false
 
     @Parameter(names = {"--min-sync-interval-seconds"},
         description = "the min sync interval of each sync in continuous mode")
-    public Integer minSyncIntervalSeconds = 0;
+    public Integer minSyncIntervalSeconds = 0; // 连续模式下每次同步的最小同步间隔，默认单位0s
 
     @Parameter(names = {"--spark-master"}, description = "spark master to use.")
-    public String sparkMaster = "local[2]";
+    public String sparkMaster = "local[2]"; // spark执行模式
 
     @Parameter(names = {"--commit-on-errors"}, description = "Commit even when some records failed to be written")
-    public Boolean commitOnErrors = false;
+    public Boolean commitOnErrors = false; // 某些记录写入失败也提交，默认false
 
     @Parameter(names = {"--delta-sync-scheduling-weight"},
         description = "Scheduling weight for delta sync as defined in "
             + "https://spark.apache.org/docs/latest/job-scheduling.html")
-    public Integer deltaSyncSchedulingWeight = 1;
+    public Integer deltaSyncSchedulingWeight = 1; // 控制资源池相对其他资源池，可以分配到资源的比例。默认所有资源池的weight都是1。
 
     @Parameter(names = {"--compact-scheduling-weight"}, description = "Scheduling weight for compaction as defined in "
         + "https://spark.apache.org/docs/latest/job-scheduling.html")
-    public Integer compactSchedulingWeight = 1;
+    public Integer compactSchedulingWeight = 1; // 控制资源池相对其他资源池，可以分配到资源的比例。默认所有资源池的weight都是1。
 
     @Parameter(names = {"--delta-sync-scheduling-minshare"}, description = "Minshare for delta sync as defined in "
         + "https://spark.apache.org/docs/latest/job-scheduling.html")
-    public Integer deltaSyncSchedulingMinShare = 0;
+    public Integer deltaSyncSchedulingMinShare = 0; // 数据同步 最小资源分配值（CPU个数）
 
     @Parameter(names = {"--compact-scheduling-minshare"}, description = "Minshare for compaction as defined in "
         + "https://spark.apache.org/docs/latest/job-scheduling.html")
-    public Integer compactSchedulingMinShare = 0;
+    public Integer compactSchedulingMinShare = 0; // 压缩数据时 最小资源分配值（CPU个数）
 
     /**
      * Compaction is enabled for MoR table by default. This flag disables it
@@ -332,7 +343,7 @@ public class HoodieDeltaStreamer implements Serializable {
      * Resume Delta Streamer from this checkpoint.
      */
     @Parameter(names = {"--checkpoint"}, description = "Resume Delta Streamer from this checkpoint.")
-    public String checkpoint = null;
+    public String checkpoint = null; // 设置恢复点
 
     @Parameter(names = {"--initial-checkpoint-provider"}, description = "subclass of "
         + "org.apache.hudi.utilities.checkpointing.InitialCheckpointProvider. Generate check point for delta streamer "
@@ -456,9 +467,13 @@ public class HoodieDeltaStreamer implements Serializable {
     return cfg;
   }
 
+  // 程序主入口
   public static void main(String[] args) throws Exception {
+    // 1.首先拿到用户的配置项
     final Config cfg = getConfig(args);
+    // 2.获取spark调度模式 FAIR/FIFO,当未启用YARN做资源管理时默认为FAIR(公平调度)
     Map<String, String> additionalSparkConfigs = SchedulerConfGenerator.getSparkSchedulingConfigs(cfg);
+    // 3.创建spark上下文对象
     JavaSparkContext jssc =
         UtilHelpers.buildSparkContext("delta-streamer-" + cfg.targetTableName, cfg.sparkMaster, additionalSparkConfigs);
 
@@ -467,8 +482,11 @@ public class HoodieDeltaStreamer implements Serializable {
     }
 
     try {
+      // 创建HoodieDeltaStreamer进行摄取数据
+      // TODO 具体摄取逻辑暂未分析
       new HoodieDeltaStreamer(cfg, jssc).sync();
     } finally {
+      // 5.最后都会停止
       jssc.stop();
     }
   }
