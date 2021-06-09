@@ -84,7 +84,8 @@ import java.util.concurrent.Executors;
 /**
  * Hudi提供的从kafka摄取topic至Hudi
  * 源码研读：
- *  1.
+ *  1.解析用户自定义配置项
+ *  2.创建spark执行上下文以及HoodieDeltaStreamer
  */
 public class HoodieDeltaStreamer implements Serializable {
 
@@ -153,15 +154,17 @@ public class HoodieDeltaStreamer implements Serializable {
 
   /**
    * Main method to start syncing.
-   *
+   * 开始摄取数据
    * @throws Exception
    */
   public void sync() throws Exception {
+    // 1，首先判断bootstrapExecutor是否已在缓存中
+    // 第一次缓存中是没有的
     if (bootstrapExecutor.isPresent()) {
       LOG.info("Performing bootstrap. Source=" + bootstrapExecutor.get().getBootstrapConfig().getBootstrapSourceBasePath());
       bootstrapExecutor.get().execute();
     } else {
-      if (cfg.continuousMode) {
+      if (cfg.continuousMode) { // 2.如果程序是still running
         deltaSyncService.ifPresent(ds -> {
           ds.start(this::onDeltaSyncShutdown);
           try {
@@ -172,10 +175,12 @@ public class HoodieDeltaStreamer implements Serializable {
         });
         LOG.info("Delta Sync shutting down");
       } else {
+        // 3.程序只跑一次
         LOG.info("Delta Streamer running only single round");
         try {
           deltaSyncService.ifPresent(ds -> {
             try {
+              // 通过deltaSyncService获取DeltaSync并开启sync
               ds.getDeltaSync().syncOnce();
             } catch (IOException e) {
               throw new HoodieIOException(e.getMessage(), e);
@@ -483,7 +488,7 @@ public class HoodieDeltaStreamer implements Serializable {
 
     try {
       // 创建HoodieDeltaStreamer进行摄取数据
-      // TODO 具体摄取逻辑暂未分析
+      //
       new HoodieDeltaStreamer(cfg, jssc).sync();
     } finally {
       // 5.最后都会停止

@@ -279,6 +279,7 @@ public class DeltaSync implements Serializable {
         }
       }
 
+      // 开始写入hudi
       result = writeToSink(srcRecordsWithCkpt.getRight().getRight(),
           srcRecordsWithCkpt.getRight().getLeft(), metrics, overallTimerContext);
     }
@@ -432,6 +433,7 @@ public class DeltaSync implements Serializable {
 
     JavaRDD<WriteStatus> writeStatusRDD;
     switch (cfg.operation) {
+      // 不同的摄取方式
       case INSERT:
         writeStatusRDD = writeClient.insert(records, instantTime);
         break;
