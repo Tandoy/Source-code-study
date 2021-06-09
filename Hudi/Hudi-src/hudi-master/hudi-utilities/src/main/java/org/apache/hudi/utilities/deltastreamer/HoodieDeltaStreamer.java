@@ -86,6 +86,7 @@ import java.util.concurrent.Executors;
  * 源码研读：
  *  1.解析用户自定义配置项
  *  2.创建spark执行上下文以及HoodieDeltaStreamer
+ *  3.根据不同的数据摄取方式进行入湖
  */
 public class HoodieDeltaStreamer implements Serializable {
 
