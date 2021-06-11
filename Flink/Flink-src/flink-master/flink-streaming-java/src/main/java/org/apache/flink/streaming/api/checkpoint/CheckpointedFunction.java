@@ -147,6 +147,15 @@ import org.apache.flink.runtime.state.FunctionSnapshotContext;
  * @see ListCheckpointed
  * @see RuntimeContext
  */
+
+/**
+ * Flink 实现了一个轻量级的分布式快照机制，其核心点在于 Barrier。
+ * Coordinator 在需要触发检查点的时候要求数据源注入向数据流中注入 barrie， barrier 和正常的数据流中的消息一起向前流动，相当于将数据流中的消息切分到了不同的检查点中。
+ * 当一个 operator 从它所有的 input channel 中都收到了 barrier，则会触发当前 operator 的快照操作，并向其下游 channel 中发射 barrier。
+ * 当所有的 sink 都反馈收到了 barrier 后，则当前检查点创建完毕。
+ */
+// 要在自定义的函数或算子中使用状态，可以实现 CheckpointedFunction 接口;
+// 既可以管理 OperatorState，也可以管理 KeyedState
 @Public
 public interface CheckpointedFunction {
 
@@ -159,6 +168,7 @@ public interface CheckpointedFunction {
      * @param context the context for drawing a snapshot of the operator
      * @throws Exception Thrown, if state could not be created ot restored.
      */
+    // 在创建检查点的时候调用
     void snapshotState(FunctionSnapshotContext context) throws Exception;
 
     /**
@@ -168,5 +178,7 @@ public interface CheckpointedFunction {
      * @param context the context for initializing the operator
      * @throws Exception Thrown, if state could not be created ot restored.
      */
+    // 在初始化的时候调用 (在从检查点恢复状态的时候也会先调用该方法)
+    // 通过 FunctionInitializationContext 可以访问到 OperatorStateStore 和 KeyedStateStore
     void initializeState(FunctionInitializationContext context) throws Exception;
 }
