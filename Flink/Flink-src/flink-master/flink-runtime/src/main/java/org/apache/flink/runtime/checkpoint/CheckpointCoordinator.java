@@ -1034,6 +1034,21 @@ public class CheckpointCoordinator {
      * @throws CheckpointException If the checkpoint cannot be added to the completed checkpoint
      *     store.
      */
+    /**
+     * 根据 Ack 的 checkpointID 从 Map<Long, PendingCheckpoint> pendingCheckpoints 中查找对应的 PendingCheckpoint
+     * 若存在对应的 PendingCheckpoint
+     *  这个 PendingCheckpoint 没有被丢弃，调用 PendingCheckpoint.acknowledgeTask 方法处理 Ack，根据处理结果的不同：
+     *      SUCCESS：判断是否已经接受了所有需要响应的 Ack，如果是，则调用 completePendingCheckpoint 完成此次 checkpoint
+     *      DUPLICATE：Ack 消息重复接收，直接忽略
+     *      UNKNOWN：未知的 Ack 消息，清理上报的 Ack 中携带的状态句柄
+     *      DISCARD：Checkpoint 已经被 discard，清理上报的 Ack 中携带的状态句柄
+     * 这个 PendingCheckpoint 已经被丢弃，抛出异常
+     * 若不存在对应的 PendingCheckpoint，则清理上报的 Ack 中携带的状态句柄
+     * @param message
+     * @param taskManagerLocationInfo
+     * @return
+     * @throws CheckpointException
+     */
     public boolean receiveAcknowledgeMessage(
             AcknowledgeCheckpoint message, String taskManagerLocationInfo)
             throws CheckpointException {
