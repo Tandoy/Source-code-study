@@ -494,6 +494,7 @@ public class CheckpointCoordinator {
      *     is true, but the periodic scheduler is disabled, the checkpoint will be declined.
      * @return a future to the completed checkpoint.
      */
+    // 触发一次checkpoint。
     public CompletableFuture<CompletedCheckpoint> triggerCheckpoint(boolean isPeriodic) {
         return triggerCheckpoint(checkpointProperties, null, isPeriodic);
     }
@@ -511,6 +512,17 @@ public class CheckpointCoordinator {
                             "Only synchronous savepoints are allowed to advance the watermark to MAX."));
         }
 
+
+        /**
+         * 检查是否可以触发 checkpoint，包括是否需要强制进行 checkpoint，当前正在排队的并发 checkpoint 的数目是否超过阈值，距离上一次成功 checkpoint 的间隔时间是否过小等，如果这些条件不满足，则当前检查点的触发请求不会执行
+         * 检查是否所有需要触发 checkpoint 的 Execution 都是 RUNNING 状态
+         * 生成此次 checkpoint 的 checkpointID（id 是严格自增的），并初始化 CheckpointStorageLocation，CheckpointStorageLocation 是此次 checkpoint 存储位置的抽象，通过 CheckpointStorage.initializeLocationForCheckpoint() 创建（CheckpointStorage 目前有两个具体实现，分别为 FsCheckpointStorage 和 MemoryBackendCheckpointStorage），CheckpointStorage 则是从 StateBackend 中创建
+         * 生成 PendingCheckpoint，这表示一个处于中间状态的 checkpoint，并保存在 checkpointId -> PendingCheckpoint 这样的映射关系中
+         * 注册一个调度任务，在 checkpoint 超时后取消此次 checkpoint，并重新触发一次新的 checkpoint
+         * 调用 Execution.triggerCheckpoint() 方法向所有需要 trigger 的 task 发起 checkpoint 请求
+         * CheckpointCoordinator 发出触发 checkpoint 的消息，最终通过 RPC 调用TaskExecutorGateway.triggerCheckpoint，即请求执行 TaskExecutor.triggerCheckpoin()
+         *
+         */
         CheckpointTriggerRequest request =
                 new CheckpointTriggerRequest(props, externalSavepointLocation, isPeriodic);
         chooseRequestToExecute(request).ifPresent(this::startTriggeringCheckpoint);
@@ -1725,6 +1737,7 @@ public class CheckpointCoordinator {
             if (shutdown) {
                 throw new IllegalArgumentException("Checkpoint coordinator is shut down");
             }
+            // 如果没有配置定期检查点，则无法启动检查点调度程序
             Preconditions.checkState(
                     isPeriodicCheckpointingConfigured(),
                     "Can not start checkpoint scheduler, if no periodic checkpointing is configured");
@@ -1733,6 +1746,7 @@ public class CheckpointCoordinator {
             stopCheckpointScheduler();
 
             periodicScheduling = true;
+            // 定时任务被封装为 ScheduledTrigger线程，运行时会调用run方法（其实最后在调用CheckpointCoordinator.triggerCheckpoint()）
             currentPeriodicTrigger = scheduleTriggerWithDelay(getRandomInitDelay());
         }
     }

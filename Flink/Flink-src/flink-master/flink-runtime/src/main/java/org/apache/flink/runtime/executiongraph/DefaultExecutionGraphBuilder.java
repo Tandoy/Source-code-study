@@ -206,7 +206,7 @@ public class DefaultExecutionGraphBuilder {
         }
 
         // configure the state checkpointing
-        if (isCheckpointingEnabled(jobGraph)) {
+        if (isCheckpointingEnabled(jobGraph)) { // 开启cp
             JobCheckpointingSettings snapshotSettings = jobGraph.getCheckpointingSettings();
 
             // Maximum number of remembered checkpoints
@@ -313,6 +313,13 @@ public class DefaultExecutionGraphBuilder {
             final CheckpointCoordinatorConfiguration chkConfig =
                     snapshotSettings.getCheckpointCoordinatorConfiguration();
 
+            /**
+             * Flink分布式快照的核心在与 stream barrier，barrier是一种特殊的标记消息，会和正常的消息记录一起在数据流中向前流动。
+             * Checkpoint Coordinator在需要触发检查点的时候要求数据源向数据流中注入 barrie，barrier和正常的数据流中的消息一起向前流动，相当于将数据流中的消息切分到了不同的检查点中。
+             * 当一个operator从它所有的input channel中都收到了barrier，则会触发当前operator的快照操作，并向其下游channel中发射 barrier。
+             * 当所有的sink都反馈完成了快照之后，Checkpoint Coordinator认为检查点创建完毕。
+             */
+            // 这里也是cp的主方法入口
             executionGraph.enableCheckpointing(
                     chkConfig,
                     hooks,

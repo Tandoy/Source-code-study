@@ -944,6 +944,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         return result;
     }
 
+    // Task 执行 checkpoint 的真正逻辑被封装在 AbstractInvokable.triggerCheckpoint(...) 中，AbstractInvokable 中有两个触发 checkpoint 的方法：
+    // triggerCheckpoint() + triggerCheckpointOnBarrier()
+    // 其中 triggerCheckpoint 是触发 checkpoint 的源头，会向下游注入 CheckpointBarrier；而下游的其他任务在收到 CheckpointBarrier 后调用 triggerCheckpointOnBarrier 方法。
+    // 这两个方法的具体实现有一些细微的差异，但主要的逻辑是一致的，在 StreamTask.performCheckpoint() 方法中： 1）先向下游发送 barrier， 2）存储检查点快照。
     private boolean triggerCheckpoint(
             CheckpointMetaData checkpointMetaData, CheckpointOptions checkpointOptions)
             throws Exception {
@@ -959,6 +963,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                     checkpointMetaData.getCheckpointId(), checkpointOptions);
 
             boolean success =
+                    // checkpoint开始入口
                     performCheckpoint(checkpointMetaData, checkpointOptions, checkpointMetrics);
             if (!success) {
                 declineCheckpoint(checkpointMetaData.getCheckpointId());
@@ -1057,6 +1062,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                             operatorChain.setIgnoreEndOfInput(false);
                         }
 
+                        // 这里主要向下游发送 barrier
                         subtaskCheckpointCoordinator.checkpointState(
                                 checkpointMetaData,
                                 checkpointOptions,

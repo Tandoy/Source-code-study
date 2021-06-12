@@ -915,6 +915,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     // Checkpointing RPCs
     // ----------------------------------------------------------------------
 
+    // CheckpointCoordinator 发出触发 checkpoint 的消息，最终通过 RPC 调用TaskExecutorGateway.triggerCheckpoint，
+    // 即请求执行 TaskExecutor.triggerCheckpoin()
     @Override
     public CompletableFuture<Acknowledge> triggerCheckpoint(
             ExecutionAttemptID executionAttemptID,
@@ -934,6 +936,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                     "Only synchronous savepoints are allowed to advance the watermark to MAX.");
         }
 
+        // 因为一个 TaskExecutor 中可能有多个 Task 正在运行，
+        // 因而要根据触发 checkpoint 的 ExecutionAttemptID 找到对应的 Task，然后调用 Task.triggerCheckpointBarrier() 方法。
+        // 只有作为 source 的 Task 才会触发 triggerCheckpointBarrier() 方法的调用。
         final Task task = taskSlotTable.getTask(executionAttemptID);
 
         if (task != null) {

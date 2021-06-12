@@ -398,6 +398,8 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
         checkState(state == JobStatus.CREATED, "Job must be in CREATED state");
         checkState(checkpointCoordinator == null, "checkpointing already enabled");
 
+        // 创建CheckpointCoordinator对象
+        // 作用：需要触发检查点的时候要求数据源向数据流中注入barrie，触发和提交检查点并保持状态
         final Collection<OperatorCoordinatorCheckpointContext> operatorCoordinators =
                 buildOpCoordinatorCheckpointContexts();
 
@@ -461,6 +463,8 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
         if (checkpointCoordinator.isPeriodicCheckpointingConfigured()) {
             // the periodic checkpoint scheduler is activated and deactivated as a result of
             // job status changes (running -> on, all other states -> off)
+            // CheckpointCoordinatorDeActivator 会在作业状态发生改变时得到通知。
+            // 当状态变为 RUNNING 时，CheckpointCoordinatorDeActivator会得到通知，并且通过 CheckpointCoordinator.startCheckpointScheduler 启动 checkpoint 的定时器。
             registerJobStatusListener(checkpointCoordinator.createActivatorDeactivator());
         }
 

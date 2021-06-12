@@ -203,6 +203,7 @@ public class StreamingJobGraphGenerator {
                 id -> streamGraph.getStreamNode(id).getManagedMemoryOperatorScopeUseCaseWeights(),
                 id -> streamGraph.getStreamNode(id).getManagedMemorySlotScopeUseCases());
 
+        // 生成JobGraph之后进行Checkpoint相关的配置。
         configureCheckpointing();
 
         jobGraph.setSavepointRestoreSettings(streamGraph.getSavepointRestoreSettings());
@@ -1228,15 +1229,18 @@ public class StreamingJobGraphGenerator {
     private void configureCheckpointing() {
         CheckpointConfig cfg = streamGraph.getCheckpointConfig();
 
+        // 用户配置cp时间间隔，默认10ms
         long interval = cfg.getCheckpointInterval();
         if (interval < MINIMAL_CHECKPOINT_TIME) {
             // interval of max value means disable periodic checkpoint
+            // 如果用户配置小于10ms,则认为不开启定期cp
             interval = Long.MAX_VALUE;
         }
 
         //  --- configure options ---
 
         CheckpointRetentionPolicy retentionAfterTermination;
+        // 是否开启cp外部存储
         if (cfg.isExternalizedCheckpointsEnabled()) {
             CheckpointConfig.ExternalizedCheckpointCleanup cleanup =
                     cfg.getExternalizedCheckpointCleanup();
@@ -1250,6 +1254,7 @@ public class StreamingJobGraphGenerator {
                             ? CheckpointRetentionPolicy.RETAIN_ON_FAILURE
                             : CheckpointRetentionPolicy.RETAIN_ON_CANCELLATION;
         } else {
+            // 当job达到终止状态时，应清除检查点
             retentionAfterTermination = CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION;
         }
 
@@ -1270,6 +1275,7 @@ public class StreamingJobGraphGenerator {
             }
         }
 
+        // 储存用户自定义state的值
         // because the hooks can have user-defined code, they need to be stored as
         // eagerly serialized values
         final SerializedValue<MasterTriggerRestoreHook.Factory[]> serializedHooks;
