@@ -28,6 +28,11 @@ import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
 import org.apache.flink.runtime.taskmanager.CheckpointResponder;
 import org.apache.flink.util.Preconditions;
 
+/**
+ * RpcCheckpointResponder 作为 CheckpointResponder 的具体实现，主要是通过 RPC 调用通知 CheckpointCoordinatorGateway，
+ * 即通知给 JobMaster, JobMaster 调用 CheckpointCoordinator.receiveAcknowledgeMessage()
+ * 和 CheckpointCoordinator.receiveDeclineMessage() 进行处理。
+ */
 public class RpcCheckpointResponder implements CheckpointResponder {
 
     private final CheckpointCoordinatorGateway checkpointCoordinatorGateway;

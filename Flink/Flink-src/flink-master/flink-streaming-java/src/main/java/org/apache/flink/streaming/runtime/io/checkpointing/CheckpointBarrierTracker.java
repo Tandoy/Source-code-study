@@ -44,6 +44,7 @@ import java.util.ArrayDeque;
  *
  * <p>NOTE: This implementation strictly assumes that newer checkpoints have higher checkpoint IDs.
  */
+// AT_LEAST_ONCE 模式下的 BarrierTracker，它仅仅追踪从每一个 input channel 接收到的 barrier，当所有 input channel 的 barrier 都被接收时，就可以触发 checkpoint 了
 @Internal
 public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
 

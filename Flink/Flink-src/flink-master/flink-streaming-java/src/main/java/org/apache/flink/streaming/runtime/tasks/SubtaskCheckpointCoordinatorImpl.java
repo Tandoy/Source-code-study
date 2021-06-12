@@ -302,7 +302,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
         // Step (4): Take the state snapshot. This should be largely asynchronous, to not impact
         // progress of the
         // streaming topology
-
+        // 异步进行存储检查点快照
         Map<OperatorID, OperatorSnapshotFutures> snapshotFutures =
                 new HashMap<>(operatorChain.getNumberOfOperators());
         try {
