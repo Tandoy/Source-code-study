@@ -294,6 +294,7 @@ public class StreamSourceContexts {
      * <p>Streaming topologies can use timestamp assigner functions to override the timestamps
      * assigned here.
      */
+    // 每次都会主动发射watermark至下游算子
     private static class ManualWatermarkContext<T> extends WatermarkContext<T> {
 
         private final Output<StreamRecord<T>> output;
@@ -319,11 +320,13 @@ public class StreamSourceContexts {
 
         @Override
         protected void processAndCollectWithTimestamp(T element, long timestamp) {
+            // 发射元素
             output.collect(reuse.replace(element, timestamp));
         }
 
         @Override
         protected void processAndEmitWatermark(Watermark mark) {
+            // 此方法确保watermark小于的元素不会发至下游
             output.emitWatermark(mark);
         }
 

@@ -24,6 +24,7 @@ import org.apache.flink.annotation.Internal;
  *
  * @param <T> The type encapsulated with the stream record.
  */
+// Flink内部使用StreamRecord来表示需要被处理的一条消息,需要在上下游的算子之间进行流动.
 @Internal
 public final class StreamRecord<T> extends StreamElement {
 

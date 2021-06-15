@@ -34,6 +34,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * is called by the valve only when it determines a new watermark or stream status can be
  * propagated.
  */
+// Watermark、StreamStatus都是交给StatusWatermarkValve来进行处理。它相当于一个阀门，当收到水位线或者流的状态的时候判断是否满足相应的条件，如果满足才会再继续发射到下游。
 @Internal
 public class StatusWatermarkValve {
 
@@ -175,6 +176,7 @@ public class StatusWatermarkValve {
         }
     }
 
+    // 如何找最小的水位线，这一步骤决定是否发射新的水位线到下游。
     private void findAndOutputNewMinWatermarkAcrossAlignedChannels(DataOutput<?> output)
             throws Exception {
         long newMinWatermark = Long.MAX_VALUE;
@@ -225,8 +227,11 @@ public class StatusWatermarkValve {
      */
     @VisibleForTesting
     protected static class InputChannelStatus {
+        // 最近一个水位线
         protected long watermark;
+        // 上游状态，active/idle
         protected StreamStatus streamStatus;
+        // 标识上游的水位线是否对齐，只有对齐时才会使用水位线
         protected boolean isWatermarkAligned;
 
         /**

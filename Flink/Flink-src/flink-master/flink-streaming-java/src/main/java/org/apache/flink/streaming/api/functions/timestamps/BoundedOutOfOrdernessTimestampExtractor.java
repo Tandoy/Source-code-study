@@ -30,6 +30,7 @@ import org.apache.flink.streaming.api.windowing.time.Time;
  * later than <code>t_late</code> units of time after the watermark that signals that the system
  * event-time has advanced past their (event-time) timestamp.
  */
+// 处理乱序数据，定期提交watermark到下游
 public abstract class BoundedOutOfOrdernessTimestampExtractor<T>
         implements AssignerWithPeriodicWatermarks<T> {
 

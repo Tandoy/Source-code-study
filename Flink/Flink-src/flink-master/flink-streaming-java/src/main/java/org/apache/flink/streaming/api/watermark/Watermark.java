@@ -37,6 +37,17 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
  * <p>When a source closes it will emit a final watermark with timestamp {@code Long.MAX_VALUE}.
  * When an operator receives this it will know that no more input will be arriving in the future.
  */
+/**
+ * 1.TM启动过程中启动SourceThread来初始化SourceStream算子
+ * 2.运行SourceStream算子，获取Source算子的上下文
+ * 3.根据用户代码中environment.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)，选择对应的SourceContext
+ * 4.SourceContext主要有以下三类：
+ *      4.1 NonTimestampContext发射的所有元素都不会携带时间戳，并且它也不不能发射Watermark。对应的配置是ProcessingTime，它不会产生Watermark，而是由WindowOperator在收到新元素时，直接根据当前系统时间判断是否要触发计算逻辑。
+ *      4.2 AutomaticWatermarkContext对应的配置是IngestionTime。它会启动一个定时任务，以固定的时间间隔从系统中提取系统时间作为Watermark发射到下游。
+ *      4.3 ManualWatermarkContext对应的配置是EventTime。用户通过它提供的方法可以主动发射Watermark。
+ * 5.
+ */
+
 @PublicEvolving
 public final class Watermark extends StreamElement {
 
