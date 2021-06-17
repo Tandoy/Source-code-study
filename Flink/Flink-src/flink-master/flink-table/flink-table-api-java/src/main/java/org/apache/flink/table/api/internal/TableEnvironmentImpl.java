@@ -717,6 +717,19 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
         }
     }
 
+    /**
+     * Flink-SQL执行用户SQL入口
+     * SQL的执行流程一般分为四个主要的阶段，Flink主要依赖于Calicte来完成这一流程
+     * 1.Parse：语法解析，把SQL语句转换成为一个抽象语法树（AST），在Calcite中用SqlNode来表示；
+     * 2.Validate：语法校验，根据元数据信息进行验证，例如查询的表、使用的函数是否存在等，校验之后仍然是SqlNode构成的语法树；
+     * 3.Optimize：查询计划优化，这里其实包含了两部分:
+     *      1）首先将 SqlNode 语法树转换成关系表达式RelNode构成的逻辑树;
+     *      2）然后使用优化器基于规则进行等价变换，例如我们比较熟悉的谓词下推、列裁剪等，经过优化器优化后得到最优的查询计划；
+     * 4.Execute：将逻辑查询计划翻译成物理执行计划，生成对应的可执行代码，提交运行。
+     * @param statement
+     * @return
+     */
+    // TODO 由于Flink主要依赖于Calicte来完成SQL，所以需要先弄清Calicte工作原理
     @Override
     public TableResult executeSql(String statement) {
         List<Operation> operations = getParser().parse(statement);
