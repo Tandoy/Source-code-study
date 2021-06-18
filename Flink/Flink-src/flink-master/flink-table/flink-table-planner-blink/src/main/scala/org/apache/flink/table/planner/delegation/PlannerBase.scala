@@ -155,6 +155,7 @@ abstract class PlannerBase(
     parser
   }
 
+  // 将Calcite的Operation继续转换为Transformation 算子
   override def translate(
       modifyOperations: util.List[ModifyOperation]): util.List[Transformation[_]] = {
     validateAndOverrideConfiguration()
@@ -162,9 +163,13 @@ abstract class PlannerBase(
       return List.empty[Transformation[_]]
     }
 
+    // 1.将Operation转换为RelNode
     val relNodes = modifyOperations.map(translateToRel)
+    // 2.优化RelNode
     val optimizedRelNodes = optimize(relNodes)
+    // 3.转换成ExecNode
     val execGraph = translateToExecNodeGraph(optimizedRelNodes)
+    // 4.转换为底层的Transformation算子
     val transformations = translateToPlan(execGraph)
     cleanupInternalConfigurations()
     transformations
@@ -276,6 +281,7 @@ abstract class PlannerBase(
     }
   }
 
+  // 在得到RelNode后，就进入Calcite对RelNode的优化流程。
   @VisibleForTesting
   private[flink] def optimize(relNodes: Seq[RelNode]): Seq[RelNode] = {
     val optimizedRelNodes = getOptimizer.optimize(relNodes)

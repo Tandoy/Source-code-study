@@ -729,15 +729,17 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
      * @param statement
      * @return
      */
-    // TODO 由于Flink主要依赖于Calicte来完成SQL，所以需要先弄清Calicte工作原理
     @Override
     public TableResult executeSql(String statement) {
+        // 1.使用calcite进行parse&validate，最后转换成link内部对查询操作的抽象QueryOperation
         List<Operation> operations = getParser().parse(statement);
 
+        // only accepts a single SQL statement of type(......)
+        // 2.一次提交只能执行一段sql,以';'为分隔符
         if (operations.size() != 1) {
             throw new TableException(UNSUPPORTED_QUERY_IN_EXECUTE_SQL_MSG);
         }
-
+        // 3.Flink将逻辑查询计划翻译成物理执行计划，生成对应的可执行代码并提交运行(其实这里Flink拿到Calcite解析验证以及优化后的QueryOperation还不能执行还需借助Planner转换成Transformation)
         return executeInternal(operations.get(0));
     }
 
@@ -748,8 +750,13 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 
     @Override
     public TableResult executeInternal(List<ModifyOperation> operations) {
+        // 1.将Operation转换为RelNode
+        // 2.优化RelNode
+        // 3.转换成ExecNode
+        // 4.转换为底层的Transformation算子
         List<Transformation<?>> transformations = translate(operations);
         List<String> sinkIdentifierNames = extractSinkIdentifierNames(operations);
+        // 这里就会拿转换来的StreamGraph
         TableResult result = executeInternal(transformations, sinkIdentifierNames);
         if (tableConfig.getConfiguration().get(TABLE_DML_SYNC)) {
             try {
@@ -767,6 +774,8 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
         String jobName = getJobName("insert-into_" + String.join(",", sinkIdentifierNames));
         Pipeline pipeline = execEnv.createPipeline(transformations, tableConfig, jobName);
         try {
+            // 其实这里就会用上面转换得来的StreeamGraph调用StreamExecutionEnvironment.executeAsync()进行执行
+            // 后续也就是Flink任务提交流程（Yarn-Per-Job ）的分析
             JobClient jobClient = execEnv.executeAsync(pipeline);
             final List<Column> columns = new ArrayList<>();
             Object[] affectedRowCounts = new Long[transformations.size()];
@@ -855,6 +864,7 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 
     @Override
     public TableResult executeInternal(Operation operation) {
+        // 不同DML queries/DDL执行不同的逻辑，我们是insert into(DML)则是ModifyOperation
         if (operation instanceof ModifyOperation) {
             return executeInternal(Collections.singletonList((ModifyOperation) operation));
         } else if (operation instanceof CreateTableOperation) {

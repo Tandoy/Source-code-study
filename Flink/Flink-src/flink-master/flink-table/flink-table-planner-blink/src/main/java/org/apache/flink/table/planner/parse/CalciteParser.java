@@ -50,7 +50,9 @@ public class CalciteParser {
      */
     public SqlNode parse(String sql) {
         try {
+            // Calcite使用JavaCC做SQL解析，JavaCC根据Calcite中定义的Parser.jj文件，生成一系列的java代码，生成的Java代码会把SQL转换成AST的数据结构（这里是SqlNode类型）。
             SqlParser parser = SqlParser.create(sql, config);
+            // 具体解析逻辑还是要看JJ文件中的定义。
             return parser.parseStmt();
         } catch (SqlParseException e) {
             throw new SqlParserException("SQL parse failed. " + e.getMessage(), e);

@@ -84,15 +84,20 @@ public class ParserImpl implements Parser {
      */
     @Override
     public List<Operation> parse(String statement) {
+        // 1.创建parse对象
         CalciteParser parser = calciteParserSupplier.get();
         FlinkPlannerImpl planner = validatorSupplier.get();
-
+        // 2.使用缓存中的parser对象进行解析
         Optional<Operation> command = EXTENDED_PARSER.parse(statement);
         if (command.isPresent()) {
             return Collections.singletonList(command.get());
         }
 
         // parse the sql query
+        // 3.使用新创建的parse对象进行SQL解析为SqlNode(是一个未经验证的抽象语法树)
+            // 3.0. 把SQL语句转换成为一个抽象语法树（AST），在Calcite中用SqlNode来表示；
+            // 3.1. 设计词法和语义，定义SQL中具体的元素；
+            // 3.2. 实现词法分析器（Lexer）和语法分析器（Parser），完成对SQL的解析，完成相应的转换。
         SqlNode parsed = parser.parse(statement);
 
         Operation operation =

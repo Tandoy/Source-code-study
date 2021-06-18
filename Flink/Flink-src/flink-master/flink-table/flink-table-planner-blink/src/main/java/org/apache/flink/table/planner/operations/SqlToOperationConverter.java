@@ -198,6 +198,7 @@ public class SqlToOperationConverter {
     public static Optional<Operation> convert(
             FlinkPlannerImpl flinkPlanner, CatalogManager catalogManager, SqlNode sqlNode) {
         // validate the query
+        // 进行SQL解析后的是SqlNode(是一个未经验证的抽象语法树)，这里进行验证
         final SqlNode validated = flinkPlanner.validate(sqlNode);
         SqlToOperationConverter converter =
                 new SqlToOperationConverter(flinkPlanner, catalogManager);
@@ -265,6 +266,7 @@ public class SqlToOperationConverter {
         } else if (validated instanceof SqlRichDescribeTable) {
             return Optional.of(converter.convertDescribeTable((SqlRichDescribeTable) validated));
         } else if (validated instanceof RichSqlInsert) {
+            // 验证完后针对不同的DDL/DML进行Converter转换操作
             return Optional.of(converter.convertSqlInsert((RichSqlInsert) validated));
         } else if (validated instanceof SqlBeginStatementSet) {
             return Optional.of(
@@ -570,6 +572,7 @@ public class SqlToOperationConverter {
     }
 
     /** Convert insert into statement. */
+    // 将 SqlNode 转化为 Operation
     private Operation convertSqlInsert(RichSqlInsert insert) {
         // Get sink table name.
         List<String> targetTablePath = ((SqlIdentifier) insert.getTargetTableID()).names;
