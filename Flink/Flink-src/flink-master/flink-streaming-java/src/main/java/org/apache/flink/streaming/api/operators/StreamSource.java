@@ -51,12 +51,14 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>>
 
     private transient volatile boolean hasSentMaxWatermark = false;
 
+    // 根据KafkaSource进行初始化
     public StreamSource(SRC sourceFunction) {
         super(sourceFunction);
 
         this.chainingStrategy = ChainingStrategy.HEAD;
     }
 
+    // 这个方法是由SourceStreamTask的SourceThread.run()调用
     public void run(
             final Object lockingObject,
             final StreamStatusMaintainer streamStatusMaintainer,
@@ -107,6 +109,8 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>>
                         -1);
 
         try {
+            // 这个userFunction就是在上面初始化的时候传入的FlinkKafkaConsumer对象，也就是说这里实际调用了FlinkKafkaConsumer中的run方法
+            // 而具体的方法实现在其父类FlinkKafkaConsumerBase中；至此，进入了真正的kafka消费阶段。
             userFunction.run(ctx);
 
             // if we get here, then the user function either exited after being done (finite source)

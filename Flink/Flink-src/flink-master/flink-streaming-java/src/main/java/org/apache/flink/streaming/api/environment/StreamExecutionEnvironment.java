@@ -1676,6 +1676,7 @@ public class StreamExecutionEnvironment {
      * @param <OUT> type of the returned stream
      * @return the data stream constructed
      */
+    // 如果source是kafka，这里就会传入FlinkKafkaConsumer
     public <OUT> DataStreamSource<OUT> addSource(SourceFunction<OUT> function) {
         return addSource(function, "Custom Source");
     }
@@ -1741,6 +1742,8 @@ public class StreamExecutionEnvironment {
 
         clean(function);
 
+        // 这里的function就是传入的FlinkKafkaConsumer对象
+        // StreamSource构造函数中将这个对象传给父类AbstractUdfStreamOperator的userFunction变量
         final StreamSource<OUT, ?> sourceOperator = new StreamSource<>(function);
         return new DataStreamSource<>(
                 this, resolvedTypeInfo, sourceOperator, isParallel, sourceName, boundedness);

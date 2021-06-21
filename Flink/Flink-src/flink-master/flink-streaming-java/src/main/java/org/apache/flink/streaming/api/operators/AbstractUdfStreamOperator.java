@@ -56,6 +56,7 @@ public abstract class AbstractUdfStreamOperator<OUT, F extends Function>
     /** Flag to prevent duplicate function.close() calls in close() and dispose(). */
     private transient boolean functionsClosed = false;
 
+    // 根据KafkaSource进行初始化
     public AbstractUdfStreamOperator(F userFunction) {
         this.userFunction = requireNonNull(userFunction);
         checkUdfCheckpointingPreconditions();

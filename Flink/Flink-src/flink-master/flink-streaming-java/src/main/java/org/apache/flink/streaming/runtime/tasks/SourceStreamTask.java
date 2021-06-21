@@ -79,6 +79,7 @@ public class SourceStreamTask<
                 FatalExitExceptionHandler.INSTANCE,
                 StreamTaskActionExecutor.synchronizedExecutor(lock));
         this.lock = Preconditions.checkNotNull(lock);
+        // 这里创建sourceThread
         this.sourceThread = new LegacySourceFunctionThread();
 
         getEnvironment().getMetricGroup().getIOMetricGroup().setEnableBusyTime(false);
@@ -148,6 +149,7 @@ public class SourceStreamTask<
         // does not hold any resources, so no cleanup needed
     }
 
+    // 此方法就是处理每条record的方法
     @Override
     protected void processInput(MailboxDefaultAction.Controller controller) throws Exception {
 
@@ -158,6 +160,7 @@ public class SourceStreamTask<
         // compatibility reasons with the current source interface (source functions run as a loop,
         // not in steps).
         sourceThread.setTaskDescription(getName());
+        // 启动sourceThread线程
         sourceThread.start();
         sourceThread
                 .getCompletionFuture()
@@ -255,6 +258,7 @@ public class SourceStreamTask<
     }
 
     /** Runnable that executes the the source function in the head operator. */
+    // 这里就是sourceThread,启动后调用run方法
     private class LegacySourceFunctionThread extends Thread {
 
         private final CompletableFuture<Void> completionFuture;
@@ -266,6 +270,7 @@ public class SourceStreamTask<
         @Override
         public void run() {
             try {
+                // 通过调用mainOperator.run方法，最终调用了StreamSource中的run方法
                 mainOperator.run(lock, getStreamStatusMaintainer(), operatorChain);
                 if (!wasStoppedExternally && !isCanceled()) {
                     synchronized (lock) {

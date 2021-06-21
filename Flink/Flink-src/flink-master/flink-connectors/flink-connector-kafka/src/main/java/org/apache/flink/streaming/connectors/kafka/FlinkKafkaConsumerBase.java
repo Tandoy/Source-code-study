@@ -753,8 +753,11 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
                         getRuntimeContext(), metricGroup -> metricGroup.addGroup("user")));
     }
 
+    // 这个方法是由StreamSource中的userFunction.run(ctx)调用
+    // 根据用户不同的sourceFunction来调用不同的具体实现类run()
     @Override
     public void run(SourceContext<T> sourceContext) throws Exception {
+        // 1.kafka消费分区校验
         if (subscribedPartitionsToStartOffsets == null) {
             throw new Exception("The partitions were not set for the consumer");
         }
@@ -802,6 +805,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
         //     instead of being built from `subscribedPartitionsToStartOffsets`
         //   - 'notifyCheckpointComplete' will start to do work (i.e. commit offsets to
         //     Kafka through the fetcher, if configured to do so)
+        // 2.创建KafkaFetcher对象
         this.kafkaFetcher =
                 createFetcher(
                         sourceContext,

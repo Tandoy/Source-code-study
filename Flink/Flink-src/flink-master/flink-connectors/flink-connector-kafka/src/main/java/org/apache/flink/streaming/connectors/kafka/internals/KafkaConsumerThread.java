@@ -164,6 +164,7 @@ public class KafkaConsumerThread<T> extends Thread {
         // This is important, because the consumer has multi-threading issues,
         // including concurrent 'close()' calls.
         try {
+            // 因为KafkaConsumer不是线程安全的，所以每个线程都需要生成独立的KafkaConsumer对象
             this.consumer = getConsumer(kafkaProperties);
         } catch (Throwable t) {
             handover.reportError(t);
@@ -255,6 +256,7 @@ public class KafkaConsumerThread<T> extends Thread {
                 // over
                 if (records == null) {
                     try {
+                        // 调用kafka消费对象进行拉取records
                         records = consumer.poll(pollTimeout);
                     } catch (WakeupException we) {
                         continue;
@@ -498,6 +500,7 @@ public class KafkaConsumerThread<T> extends Thread {
         }
     }
 
+    // 因为KafkaConsumer不是线程安全的，所以每个线程都需要生成独立的KafkaConsumer对象
     @VisibleForTesting
     KafkaConsumer<byte[], byte[]> getConsumer(Properties kafkaProperties) {
         return new KafkaConsumer<>(kafkaProperties);
