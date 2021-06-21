@@ -27,12 +27,15 @@ public enum StartupMode {
     /**
      * Start from committed offsets in ZK / Kafka brokers of a specific consumer group (default).
      */
+    // 从 Zookeeper/Kafka 中某个指定的消费组已提交的偏移量开始。
     GROUP_OFFSETS(KafkaTopicPartitionStateSentinel.GROUP_OFFSET),
 
     /** Start from the earliest offset possible. */
+    // 从可能的最早偏移量开始。
     EARLIEST(KafkaTopicPartitionStateSentinel.EARLIEST_OFFSET),
 
     /** Start from the latest offset. */
+    // 从最末尾偏移量开始。（即最新offset点位）
     LATEST(KafkaTopicPartitionStateSentinel.LATEST_OFFSET),
 
     /**
@@ -40,6 +43,7 @@ public enum StartupMode {
      * offsets to start with, we do not need a sentinel value; using Long.MIN_VALUE as a
      * placeholder.
      */
+    // 从用户为每个 partition 指定的时间戳开始。
     TIMESTAMP(Long.MIN_VALUE),
 
     /**
@@ -47,6 +51,7 @@ public enum StartupMode {
      * specific offsets to start with, we do not need a sentinel value; using Long.MIN_VALUE as a
      * placeholder.
      */
+    // 从用户为每个 partition 指定的偏移量开始。
     SPECIFIC_OFFSETS(Long.MIN_VALUE);
 
     /** The sentinel offset value corresponding to this startup mode. */

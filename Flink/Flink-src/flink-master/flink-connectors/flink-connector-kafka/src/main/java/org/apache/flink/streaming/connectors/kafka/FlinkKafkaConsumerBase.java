@@ -130,6 +130,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
      * The set of topic partitions that the source will read, with their initial offsets to start
      * reading from.
      */
+    // 保存订阅topic的所有partition以及初始消费的offset。
     private Map<KafkaTopicPartition, Long> subscribedPartitionsToStartOffsets;
 
     /**
