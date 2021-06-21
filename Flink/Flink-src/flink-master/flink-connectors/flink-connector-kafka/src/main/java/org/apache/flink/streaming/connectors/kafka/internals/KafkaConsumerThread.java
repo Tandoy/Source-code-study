@@ -223,6 +223,7 @@ public class KafkaConsumerThread<T> extends Thread {
 
                         // also record that a commit is already in progress
                         // the order here matters! first set the flag, then send the commit command.
+                        // 这样就会保证当有需要提交的 offset 的时候，下面代码会执行 consumer.commitAsync，从而完成了手动提交 offset 到 kafka。
                         commitInProgress = true;
                         consumer.commitAsync(
                                 commitOffsetsAndCallback.f0,

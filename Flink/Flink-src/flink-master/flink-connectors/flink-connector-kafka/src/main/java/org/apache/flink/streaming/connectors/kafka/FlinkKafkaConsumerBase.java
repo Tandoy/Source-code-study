@@ -561,8 +561,8 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
         // determine the offset commit mode
         this.offsetCommitMode =
                 OffsetCommitModes.fromConfiguration(
-                        getIsAutoCommitEnabled(),
-                        enableCommitOnCheckpoints,
+                        getIsAutoCommitEnabled(), // 只有enable.auto.commit=true并且auto.commit.interval.ms>0这个方法才会返回true
+                        enableCommitOnCheckpoints,// enableCommitOnCheckpoints默认是true，可以调用setCommitOffsetsOnCheckpoints改变这个值
                         ((StreamingRuntimeContext) getRuntimeContext()).isCheckpointingEnabled());
 
         // create the partition discoverer
@@ -1028,6 +1028,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
                                     subscribedPartition.getKey(), subscribedPartition.getValue()));
                 }
 
+                //
                 if (offsetCommitMode == OffsetCommitMode.ON_CHECKPOINTS) {
                     // the map cannot be asynchronously updated, because only one checkpoint call
                     // can happen
@@ -1038,6 +1039,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
             } else {
                 HashMap<KafkaTopicPartition, Long> currentOffsets = fetcher.snapshotCurrentState();
 
+                // 提交要保存的offset状态
                 if (offsetCommitMode == OffsetCommitMode.ON_CHECKPOINTS) {
                     // the map cannot be asynchronously updated, because only one checkpoint call
                     // can happen
@@ -1064,6 +1066,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
         }
     }
 
+    // 在checkpoint完成以后，task会调用notifyCheckpointComplete方法
     @Override
     public final void notifyCheckpointComplete(long checkpointId) throws Exception {
         if (!running) {
@@ -1112,6 +1115,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
                     return;
                 }
 
+                // 提交offset回kafka
                 fetcher.commitInternalOffsetsToKafka(offsets, offsetCommitCallback);
             } catch (Exception e) {
                 if (running) {

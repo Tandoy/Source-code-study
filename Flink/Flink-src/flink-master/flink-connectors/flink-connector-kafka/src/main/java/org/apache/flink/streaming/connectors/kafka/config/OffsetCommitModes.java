@@ -37,13 +37,13 @@ public class OffsetCommitModes {
             boolean enableCommitOnCheckpoint,
             boolean enableCheckpointing) {
 
-        if (enableCheckpointing) {
+        if (enableCheckpointing) { // 开启cp
             // if checkpointing is enabled, the mode depends only on whether committing on
             // checkpoints is enabled
-            return (enableCommitOnCheckpoint)
+            return (enableCommitOnCheckpoint) // 默认enableCommitOnCheckpoint=true
                     ? OffsetCommitMode.ON_CHECKPOINTS
                     : OffsetCommitMode.DISABLED;
-        } else {
+        } else { // 不开启cp
             // else, the mode depends only on whether auto committing is enabled in the provided
             // Kafka properties
             return (enableAutoCommit) ? OffsetCommitMode.KAFKA_PERIODIC : OffsetCommitMode.DISABLED;

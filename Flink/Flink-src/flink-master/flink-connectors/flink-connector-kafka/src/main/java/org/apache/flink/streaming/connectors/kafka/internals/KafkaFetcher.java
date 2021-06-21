@@ -229,6 +229,7 @@ public class KafkaFetcher<T> extends AbstractFetcher<T, TopicPartition> {
 
         // record the work to be committed by the main consumer thread and make sure the consumer
         // notices that
+        // 将要提交的offsetnextOffsetsToCommit成员变量中
         consumerThread.setOffsetsToCommit(offsetsToCommit, commitCallback);
     }
 
