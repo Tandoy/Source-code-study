@@ -1015,6 +1015,7 @@ public class FlinkKafkaProducer<IN>
         checkErroneous();
     }
 
+    // 事务提交
     @Override
     protected void commit(FlinkKafkaProducer.KafkaTransactionState transaction) {
         if (transaction.isTransactional()) {

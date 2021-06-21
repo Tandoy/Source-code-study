@@ -223,6 +223,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT> extends RichS
         invoke(currentTransactionHolder.handle, value, context);
     }
 
+    // FlinkKafkaProducer第二阶段提交
     @Override
     public final void notifyCheckpointComplete(long checkpointId) throws Exception {
         // the following scenarios are possible here
@@ -279,6 +280,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT> extends RichS
 
             logWarningIfTimeoutAlmostReached(pendingTransaction);
             try {
+                // 将所有pendingTransaction进行提交
                 commit(pendingTransaction.handle);
             } catch (Throwable t) {
                 if (firstError == null) {
@@ -301,6 +303,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT> extends RichS
     @Override
     public void notifyCheckpointAborted(long checkpointId) {}
 
+    // FlinkKafkaProducer第一阶段提交
     @Override
     public void snapshotState(FunctionSnapshotContext context) throws Exception {
         // this is like the pre-commit of a 2-phase-commit transaction
