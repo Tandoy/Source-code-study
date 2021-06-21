@@ -1241,6 +1241,7 @@ public class DataStream<T> {
             ((InputTypeConfigurable) sinkFunction).setInputType(getType(), getExecutionConfig());
         }
 
+        // 这里的sinkFunction就是传入的FlinkKafkaProducer对象
         StreamSink<T> sinkOperator = new StreamSink<>(clean(sinkFunction));
 
         DataStreamSink<T> sink = new DataStreamSink<>(this, sinkOperator);

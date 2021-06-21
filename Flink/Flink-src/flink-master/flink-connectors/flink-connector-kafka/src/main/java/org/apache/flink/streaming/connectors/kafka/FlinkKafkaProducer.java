@@ -129,18 +129,21 @@ public class FlinkKafkaProducer<IN>
          * <li>increase the delay between checkpoints
          * <li>increase the size of {@link FlinkKafkaInternalProducer}s pool
          */
+        // EXACTLY_ONCE语义也会执行send和flush方法，但是同时会开启kafka producer的事务机制，只有是 EXACTLY_ONCE 模式才会真正开始一个事务。
         EXACTLY_ONCE,
 
         /**
          * Semantic.AT_LEAST_ONCE the Flink producer will wait for all outstanding messages in the
          * Kafka buffers to be acknowledged by the Kafka producer on a checkpoint.
          */
+        // cp之后将send的数据立即发送给kafka服务端
         AT_LEAST_ONCE,
 
         /**
          * Semantic.NONE means that nothing will be guaranteed. Messages can be lost and/or
          * duplicated in case of failure.
          */
+        // 这种方式不会做任何额外的操作，完全依靠 kafka producer自身的特性，也就是FlinkKafkaProducer#invoke 里面发送数据之后，Flink不会再考虑kafka是否已经正确的收到数据。
         NONE
     }
 
@@ -843,6 +846,7 @@ public class FlinkKafkaProducer<IN>
         super.open(configuration);
     }
 
+    // send records
     @Override
     public void invoke(
             FlinkKafkaProducer.KafkaTransactionState transaction, IN next, Context context)
@@ -968,6 +972,7 @@ public class FlinkKafkaProducer<IN>
 
     // ------------------- Logic for handling checkpoint flushing -------------------------- //
 
+    // 只有是EXACTLY_ONCE模式才会真正开始一个事务FlinkKafkaProducer
     @Override
     protected FlinkKafkaProducer.KafkaTransactionState beginTransaction()
             throws FlinkKafkaException {
@@ -999,6 +1004,7 @@ public class FlinkKafkaProducer<IN>
         switch (semantic) {
             case EXACTLY_ONCE:
             case AT_LEAST_ONCE:
+                // 如果开启了checkpoint功能，在FlinkKafkaProducer#snapshotState中会首先执行父类的snapshotState方法，里面最终会执行FlinkKafkaProducer#preCommit。
                 flush(transaction);
                 break;
             case NONE:
@@ -1080,6 +1086,7 @@ public class FlinkKafkaProducer<IN>
      *
      * @param transaction
      */
+    // AT_LEAST_ONCE会执行了flush方法,就是将send的数据立即发送给kafka服务端
     private void flush(FlinkKafkaProducer.KafkaTransactionState transaction)
             throws FlinkKafkaException {
         if (transaction.producer != null) {

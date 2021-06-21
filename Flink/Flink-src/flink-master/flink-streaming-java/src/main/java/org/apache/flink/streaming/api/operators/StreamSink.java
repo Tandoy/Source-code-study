@@ -48,9 +48,11 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
         this.sinkContext = new SimpleContext<>(getProcessingTimeService());
     }
 
+    // StreamSinkTask启动会调用此方法发送records
     @Override
     public void processElement(StreamRecord<IN> element) throws Exception {
         sinkContext.element = element;
+        // 如果是kafka，也就是实际调用的是FlinkKafkaProducer#invoke方法
         userFunction.invoke(element.getValue(), sinkContext);
     }
 
