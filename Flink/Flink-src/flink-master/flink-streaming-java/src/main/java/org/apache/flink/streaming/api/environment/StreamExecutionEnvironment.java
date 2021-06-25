@@ -1970,6 +1970,7 @@ public class StreamExecutionEnvironment {
                         .execute(streamGraph, configuration, userClassloader);
 
         try {
+            // TODO 1.远程Debug发现此处获取jobClient超时，导致作业无法提交至集群
             JobClient jobClient = jobClientFuture.get();
             jobListeners.forEach(jobListener -> jobListener.onJobSubmitted(jobClient, null));
             return jobClient;
