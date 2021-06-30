@@ -100,12 +100,15 @@ public class HoodieClusteringJob {
   public static void main(String[] args) {
     final Config cfg = new Config();
     JCommander cmd = new JCommander(cfg, null, args);
+    // 1.解析用户参数
     if (cfg.help || args.length == 0 || (!cfg.runSchedule && cfg.clusteringInstantTime == null)) {
       cmd.usage();
       System.exit(1);
     }
     final JavaSparkContext jsc = UtilHelpers.buildSparkContext("clustering-" + cfg.tableName, cfg.sparkMaster, cfg.sparkMemory);
     HoodieClusteringJob clusteringJob = new HoodieClusteringJob(jsc, cfg);
+    // 2.开始Clustering
+    // TODO 针对MOR hudi_on_flinksql2表进行clustering但在timeline上并没有生成instant，待排查
     int result = clusteringJob.cluster(cfg.retry);
     String resultMsg = String.format("Clustering with basePath: %s, tableName: %s, runSchedule: %s",
         cfg.basePath, cfg.tableName, cfg.runSchedule);
@@ -120,6 +123,7 @@ public class HoodieClusteringJob {
   public int cluster(int retry) {
     this.fs = FSUtils.getFs(cfg.basePath, jsc.hadoopConfiguration());
     int ret = UtilHelpers.retry(retry, () -> {
+      // 默认false
       if (cfg.runSchedule) {
         LOG.info("Do schedule");
         Option<String> instantTime = doSchedule(jsc);
@@ -151,6 +155,7 @@ public class HoodieClusteringJob {
     SparkRDDWriteClient client =
         UtilHelpers.createHoodieClient(jsc, cfg.basePath, schemaStr, cfg.parallelism, Option.empty(), props);
     JavaRDD<WriteStatus> writeResponse =
+            // 这里clusteringInstantTime会自动生成 例如：20210630174251
         (JavaRDD<WriteStatus>) client.cluster(cfg.clusteringInstantTime, true).getWriteStatuses();
     return UtilHelpers.handleErrors(jsc, cfg.clusteringInstantTime, writeResponse);
   }
