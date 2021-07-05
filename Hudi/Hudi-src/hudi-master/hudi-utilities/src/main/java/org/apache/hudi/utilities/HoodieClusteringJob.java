@@ -108,7 +108,7 @@ public class HoodieClusteringJob {
     final JavaSparkContext jsc = UtilHelpers.buildSparkContext("clustering-" + cfg.tableName, cfg.sparkMaster, cfg.sparkMemory);
     HoodieClusteringJob clusteringJob = new HoodieClusteringJob(jsc, cfg);
     // 2.开始Clustering
-    // TODO 针对MOR hudi_on_flinksql2表进行clustering但在timeline上并没有生成instant，待排查
+    // TODO The log shows that Clustering is successful, but only the replacecommit.requested file is generated but the .commit file is not generated
     int result = clusteringJob.cluster(cfg.retry);
     String resultMsg = String.format("Clustering with basePath: %s, tableName: %s, runSchedule: %s",
         cfg.basePath, cfg.tableName, cfg.runSchedule);
@@ -124,6 +124,7 @@ public class HoodieClusteringJob {
     this.fs = FSUtils.getFs(cfg.basePath, jsc.hadoopConfiguration());
     int ret = UtilHelpers.retry(retry, () -> {
       // 默认false
+      // TODO 为什么--schedule没有指定为true且默认false但Debug发现是true
       if (cfg.runSchedule) {
         LOG.info("Do schedule");
         Option<String> instantTime = doSchedule(jsc);
@@ -131,6 +132,7 @@ public class HoodieClusteringJob {
         if (result == 0) {
           LOG.info("The schedule instant time is " + instantTime.get());
         }
+                
         return result;
       } else {
         LOG.info("Do cluster");

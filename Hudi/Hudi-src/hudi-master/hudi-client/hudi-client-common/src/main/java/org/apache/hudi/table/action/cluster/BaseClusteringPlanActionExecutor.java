@@ -53,6 +53,7 @@ public abstract class BaseClusteringPlanActionExecutor<T extends HoodieRecordPay
 
   @Override
   public Option<HoodieClusteringPlan> execute() {
+    //
     Option<HoodieClusteringPlan> planOption = createClusteringPlan();
     if (planOption.isPresent()) {
       HoodieInstant clusteringInstant =
