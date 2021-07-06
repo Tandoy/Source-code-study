@@ -19,7 +19,6 @@
 package org.apache.hudi.cli.commands;
 
 import org.apache.hudi.avro.model.HoodieArchivedMetaEntry;
-import org.apache.hudi.avro.model.HoodieCommitMetadata;
 import org.apache.hudi.cli.HoodieCLI;
 import org.apache.hudi.cli.HoodiePrintHelper;
 import org.apache.hudi.cli.TableHeader;

@@ -31,6 +31,8 @@ import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.exception.HoodieIOException;
 import org.apache.hudi.table.HoodieTable;
 import org.apache.hudi.table.action.BaseActionExecutor;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -39,6 +41,7 @@ import java.util.Map;
 public abstract class BaseClusteringPlanActionExecutor<T extends HoodieRecordPayload, I, K, O> extends BaseActionExecutor<T, I, K, O, Option<HoodieClusteringPlan>> {
 
   private final Option<Map<String, String>> extraMetadata;
+  private static final Logger LOG = LogManager.getLogger(BaseClusteringPlanActionExecutor.class);
 
   public BaseClusteringPlanActionExecutor(HoodieEngineContext context,
                                           HoodieWriteConfig config,
@@ -53,9 +56,11 @@ public abstract class BaseClusteringPlanActionExecutor<T extends HoodieRecordPay
 
   @Override
   public Option<HoodieClusteringPlan> execute() {
-    //
+    // 1.创建ClusteringPlan，注意这里会对当前要Clustering的表.commit进行计数，默认要大于4个
     Option<HoodieClusteringPlan> planOption = createClusteringPlan();
     if (planOption.isPresent()) {
+      // TODO The log shows that Clustering is successful, but only the replacecommit.requested file is generated but the .replacecommit file is not generated
+      // 此处clusteringInstant会写入元数据文件中 创建20210705105809.replacecommit.requested文件
       HoodieInstant clusteringInstant =
           new HoodieInstant(HoodieInstant.State.REQUESTED, HoodieTimeline.REPLACE_COMMIT_ACTION, instantTime);
       try {
@@ -70,6 +75,7 @@ public abstract class BaseClusteringPlanActionExecutor<T extends HoodieRecordPay
         throw new HoodieIOException("Exception scheduling clustering", ioe);
       }
     }
+    LOG.info("*************************only the replacecommit.requested file is generated but the .replacecommit file is not generated**********************************");
     return planOption;
   }
 }

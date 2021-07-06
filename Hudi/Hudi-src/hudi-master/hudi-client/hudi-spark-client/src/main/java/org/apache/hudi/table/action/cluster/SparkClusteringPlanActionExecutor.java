@@ -53,8 +53,9 @@ public class SparkClusteringPlanActionExecutor<T extends HoodieRecordPayload> ex
   @Override
   protected Option<HoodieClusteringPlan> createClusteringPlan() {
     LOG.info("Checking if clustering needs to be run on " + config.getBasePath());
+    // 其实这里就是在找.hoodie中是否存在.replacecommit文件
     Option<HoodieInstant> lastClusteringInstant = table.getActiveTimeline().getCompletedReplaceTimeline().lastInstant();
-
+    // 这里是在对当前要Clustering的表.commit进行计数，默认要大于4个
     int commitsSinceLastClustering = table.getActiveTimeline().getCommitsTimeline().filterCompletedInstants()
         .findInstantsAfter(lastClusteringInstant.map(HoodieInstant::getTimestamp).orElse("0"), Integer.MAX_VALUE)
         .countInstants();

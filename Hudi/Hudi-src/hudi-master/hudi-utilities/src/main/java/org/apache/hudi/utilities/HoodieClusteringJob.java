@@ -41,6 +41,11 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 其实Hudi中将Clustering分为两步：
+ * 1.Schedule clustering (which is the spark-submit with --schedule option). As seen in the logs screenshot, this gives the instant for which clustering is scheduled.
+ * 2.Run clustering (spark-submit with --instant-time option) where you give the instant obtained in step 1. This is the step which actually executes clustering.
+ */
 public class HoodieClusteringJob {
 
   private static final Logger LOG = LogManager.getLogger(HoodieClusteringJob.class);
@@ -101,14 +106,15 @@ public class HoodieClusteringJob {
     final Config cfg = new Config();
     JCommander cmd = new JCommander(cfg, null, args);
     // 1.解析用户参数
+    // 若用户进行第一步操作传入--schedule则经过解析cfg.runSchedule = true
+    // 若用户进行第二步操作传入--instant-time则经过解析cfg.runSchedule = false,clusteringInstantTime is null
     if (cfg.help || args.length == 0 || (!cfg.runSchedule && cfg.clusteringInstantTime == null)) {
       cmd.usage();
       System.exit(1);
     }
     final JavaSparkContext jsc = UtilHelpers.buildSparkContext("clustering-" + cfg.tableName, cfg.sparkMaster, cfg.sparkMemory);
     HoodieClusteringJob clusteringJob = new HoodieClusteringJob(jsc, cfg);
-    // 2.开始Clustering
-    // TODO The log shows that Clustering is successful, but only the replacecommit.requested file is generated but the .commit file is not generated
+    // 2.开始 Schedule Clustering
     int result = clusteringJob.cluster(cfg.retry);
     String resultMsg = String.format("Clustering with basePath: %s, tableName: %s, runSchedule: %s",
         cfg.basePath, cfg.tableName, cfg.runSchedule);
@@ -123,8 +129,7 @@ public class HoodieClusteringJob {
   public int cluster(int retry) {
     this.fs = FSUtils.getFs(cfg.basePath, jsc.hadoopConfiguration());
     int ret = UtilHelpers.retry(retry, () -> {
-      // 默认false
-      // TODO 为什么--schedule没有指定为true且默认false但Debug发现是true
+      // 第一步：Schedule Clustering
       if (cfg.runSchedule) {
         LOG.info("Do schedule");
         Option<String> instantTime = doSchedule(jsc);
@@ -135,6 +140,7 @@ public class HoodieClusteringJob {
                 
         return result;
       } else {
+        // 第二步：Run clustering
         LOG.info("Do cluster");
         return doCluster(jsc);
       }
@@ -157,7 +163,7 @@ public class HoodieClusteringJob {
     SparkRDDWriteClient client =
         UtilHelpers.createHoodieClient(jsc, cfg.basePath, schemaStr, cfg.parallelism, Option.empty(), props);
     JavaRDD<WriteStatus> writeResponse =
-            // 这里clusteringInstantTime会自动生成 例如：20210630174251
+            // 由于第一步已经生成replacecommit.requested文件 例如：clusteringInstantTime=20210706101201
         (JavaRDD<WriteStatus>) client.cluster(cfg.clusteringInstantTime, true).getWriteStatuses();
     return UtilHelpers.handleErrors(jsc, cfg.clusteringInstantTime, writeResponse);
   }

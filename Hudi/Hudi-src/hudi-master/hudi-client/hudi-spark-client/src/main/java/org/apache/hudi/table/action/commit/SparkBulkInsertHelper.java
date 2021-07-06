@@ -78,6 +78,7 @@ public class SparkBulkInsertHelper<T extends HoodieRecordPayload, R> extends Abs
     return result;
   }
 
+  // 经过Hudi-Clustering后会生成一个新的parquet文件
   @Override
   public JavaRDD<WriteStatus> bulkInsert(JavaRDD<HoodieRecord<T>> inputRecords,
                                          String instantTime,

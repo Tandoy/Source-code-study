@@ -83,13 +83,17 @@ public class SparkExecuteClusteringCommitActionExecutor<T extends HoodieRecordPa
 
   @Override
   public HoodieWriteMetadata<JavaRDD<WriteStatus>> execute() {
+    // 1.拿到ReplaceCommitRequestedInstant
     HoodieInstant instant = HoodieTimeline.getReplaceCommitRequestedInstant(instantTime);
     // Mark instant as clustering inflight
+    // 2.将ReplaceCommitInflightInstant写入.hoodie元数据文件
     table.getActiveTimeline().transitionReplaceRequestedToInflight(instant, Option.empty());
+    // 3.reload timeline
     table.getMetaClient().reloadActiveTimeline();
 
     JavaSparkContext engineContext = HoodieSparkEngineContext.getSparkContext(context);
     // execute clustering for each group async and collect WriteStatus
+    // 对每个fileGroup进行Clustering
     JavaRDD<WriteStatus> writeStatusRDD = clusteringPlan.getInputGroups().stream()
         .map(inputGroup -> runClusteringForGroupAsync(inputGroup, clusteringPlan.getStrategy().getStrategyParams()))
         .map(CompletableFuture::join)
@@ -130,7 +134,9 @@ public class SparkExecuteClusteringCommitActionExecutor<T extends HoodieRecordPa
   private CompletableFuture<JavaRDD<WriteStatus>> runClusteringForGroupAsync(HoodieClusteringGroup clusteringGroup, Map<String, String> strategyParams) {
     CompletableFuture<JavaRDD<WriteStatus>> writeStatusesFuture = CompletableFuture.supplyAsync(() -> {
       JavaSparkContext jsc = HoodieSparkEngineContext.getSparkContext(context);
+      // 1.拿到每条记录
       JavaRDD<HoodieRecord<? extends HoodieRecordPayload>> inputRecords = readRecordsForGroup(jsc, clusteringGroup);
+      // 2.从元数据中得到表的Schema
       Schema readerSchema = HoodieAvroUtils.addMetadataFields(new Schema.Parser().parse(config.getSchema()));
       return ((ClusteringExecutionStrategy<T, JavaRDD<HoodieRecord<? extends HoodieRecordPayload>>, JavaRDD<HoodieKey>, JavaRDD<WriteStatus>>)
           ReflectionUtils.loadClass(config.getClusteringExecutionStrategyClass(), table, context, config))

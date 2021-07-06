@@ -942,6 +942,7 @@ public abstract class AbstractHoodieWriteClient<T extends HoodieRecordPayload, I
     // A lock is required to guard against race conditions between an on-going writer and scheduling a table service.
     // 加锁 write/compaction
     try {
+      // 1.这里的HoodieInstant并不会写入元数据文件中
       this.txnManager.beginTransaction(Option.of(new HoodieInstant(HoodieInstant.State.REQUESTED,
           tableServiceType.getAction(), instantTime)), Option.empty());
       LOG.info("Scheduling table service " + tableServiceType);

@@ -18,17 +18,7 @@
 
 package org.apache.hudi.common.table.timeline;
 
-import org.apache.hudi.avro.model.HoodieCleanMetadata;
-import org.apache.hudi.avro.model.HoodieCleanerPlan;
-import org.apache.hudi.avro.model.HoodieCompactionPlan;
-import org.apache.hudi.avro.model.HoodieInstantInfo;
-import org.apache.hudi.avro.model.HoodieReplaceCommitMetadata;
-import org.apache.hudi.avro.model.HoodieRequestedReplaceMetadata;
-import org.apache.hudi.avro.model.HoodieRestoreMetadata;
-import org.apache.hudi.avro.model.HoodieRollbackMetadata;
-import org.apache.hudi.avro.model.HoodieRollbackPartitionMetadata;
-import org.apache.hudi.avro.model.HoodieSavepointMetadata;
-import org.apache.hudi.avro.model.HoodieSavepointPartitionMetadata;
+import org.apache.hudi.avro.model.*;
 import org.apache.hudi.common.HoodieRollbackStat;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.ValidationUtils;

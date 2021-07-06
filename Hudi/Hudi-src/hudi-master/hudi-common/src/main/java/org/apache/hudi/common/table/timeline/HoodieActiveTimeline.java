@@ -385,6 +385,7 @@ public class HoodieActiveTimeline extends HoodieDefaultTimeline {
     try {
       if (metaClient.getTimelineLayoutVersion().isNullVersion()) {
         // Re-create the .inflight file by opening a new file and write the commit metadata in
+        // 在这里会将.inflight file写入.hoodie元数据文件
         createFileInMetaPath(fromInstant.getFileName(), data, allowRedundantTransitions);
         Path fromInstantPath = new Path(metaClient.getMetaPath(), fromInstant.getFileName());
         Path toInstantPath = new Path(metaClient.getMetaPath(), toInstant.getFileName());
@@ -484,8 +485,10 @@ public class HoodieActiveTimeline extends HoodieDefaultTimeline {
   private void createFileInMetaPath(String filename, Option<byte[]> content, boolean allowOverwrite) {
     Path fullPath = new Path(metaClient.getMetaPath(), filename);
     if (allowOverwrite || metaClient.getTimelineLayoutVersion().isNullVersion()) {
+      LOG.info("************use createFileInPath************");
       createFileInPath(fullPath, content);
     } else {
+      LOG.info("************use createImmutableFileInPath************");
       createImmutableFileInPath(fullPath, content);
     }
   }
@@ -522,13 +525,17 @@ public class HoodieActiveTimeline extends HoodieDefaultTimeline {
     try {
       fsout = metaClient.getFs().create(fullPath, false);
       if (content.isPresent()) {
+        LOG.info("************write .replacecommit file start************");
+        LOG.info("************content************"+content.toString());
         fsout.write(content.get());
+        LOG.info("************write .replacecommit file end************");
       }
     } catch (IOException e) {
       throw new HoodieIOException("Failed to create file " + fullPath, e);
     } finally {
       try {
         if (null != fsout) {
+          fsout.hflush();
           fsout.close();
         }
       } catch (IOException e) {
