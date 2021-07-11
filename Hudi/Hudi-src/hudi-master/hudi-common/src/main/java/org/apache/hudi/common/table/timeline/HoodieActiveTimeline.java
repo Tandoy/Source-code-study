@@ -485,10 +485,8 @@ public class HoodieActiveTimeline extends HoodieDefaultTimeline {
   private void createFileInMetaPath(String filename, Option<byte[]> content, boolean allowOverwrite) {
     Path fullPath = new Path(metaClient.getMetaPath(), filename);
     if (allowOverwrite || metaClient.getTimelineLayoutVersion().isNullVersion()) {
-      LOG.info("************use createFileInPath************");
       createFileInPath(fullPath, content);
     } else {
-      LOG.info("************use createImmutableFileInPath************");
       createImmutableFileInPath(fullPath, content);
     }
   }
@@ -525,10 +523,7 @@ public class HoodieActiveTimeline extends HoodieDefaultTimeline {
     try {
       fsout = metaClient.getFs().create(fullPath, false);
       if (content.isPresent()) {
-        LOG.info("************write .replacecommit file start************");
-        LOG.info("************content************"+content.toString());
         fsout.write(content.get());
-        LOG.info("************write .replacecommit file end************");
       }
     } catch (IOException e) {
       throw new HoodieIOException("Failed to create file " + fullPath, e);

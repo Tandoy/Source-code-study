@@ -18,7 +18,6 @@
 
 package org.apache.hudi.client.bootstrap;
 
-import org.apache.hudi.avro.model.HoodieFileStatus;
 import org.apache.hudi.client.bootstrap.selector.FullRecordBootstrapModeSelector;
 import org.apache.hudi.client.bootstrap.selector.MetadataOnlyBootstrapModeSelector;
 import org.apache.hudi.client.bootstrap.selector.UniformBootstrapModeSelector;

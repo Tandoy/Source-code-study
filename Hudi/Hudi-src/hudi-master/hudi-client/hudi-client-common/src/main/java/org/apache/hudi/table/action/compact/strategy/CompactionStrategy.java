@@ -71,7 +71,7 @@ public abstract class CompactionStrategy implements Serializable {
    * @return Compaction plan to be scheduled.
    */
   public HoodieCompactionPlan generateCompactionPlan(HoodieWriteConfig writeConfig,
-      List<HoodieCompactionOperation> operations, List<HoodieCompactionPlan> pendingCompactionPlans) {
+                                                     List<HoodieCompactionOperation> operations, List<HoodieCompactionPlan> pendingCompactionPlans) {
     // Strategy implementation can overload this method to set specific compactor-id
     return HoodieCompactionPlan.newBuilder()
         .setOperations(orderAndFilter(writeConfig, operations, pendingCompactionPlans))

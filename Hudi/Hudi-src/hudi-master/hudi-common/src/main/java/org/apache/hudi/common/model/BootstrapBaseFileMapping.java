@@ -19,6 +19,7 @@
 package org.apache.hudi.common.model;
 
 import java.io.Serializable;
+
 import org.apache.hudi.avro.model.HoodieFileStatus;
 import org.apache.hudi.common.bootstrap.FileStatusUtils;
 

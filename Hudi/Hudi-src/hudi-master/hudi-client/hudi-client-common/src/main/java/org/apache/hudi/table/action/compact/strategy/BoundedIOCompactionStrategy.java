@@ -35,7 +35,7 @@ public class BoundedIOCompactionStrategy extends CompactionStrategy {
 
   @Override
   public List<HoodieCompactionOperation> orderAndFilter(HoodieWriteConfig writeConfig,
-      List<HoodieCompactionOperation> operations, List<HoodieCompactionPlan> pendingCompactionPlans) {
+                                                        List<HoodieCompactionOperation> operations, List<HoodieCompactionPlan> pendingCompactionPlans) {
     // Iterate through the operations in order and accept operations as long as we are within the
     // IO limit
     // Preserves the original ordering of compactions

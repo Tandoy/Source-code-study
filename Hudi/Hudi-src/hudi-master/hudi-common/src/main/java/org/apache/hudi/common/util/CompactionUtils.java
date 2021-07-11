@@ -65,7 +65,7 @@ public class CompactionUtils {
    * @return Compaction Operation
    */
   public static HoodieCompactionOperation buildFromFileSlice(String partitionPath, FileSlice fileSlice,
-      Option<Function<Pair<String, FileSlice>, Map<String, Double>>> metricsCaptureFunction) {
+                                                             Option<Function<Pair<String, FileSlice>, Map<String, Double>>> metricsCaptureFunction) {
     HoodieCompactionOperation.Builder builder = HoodieCompactionOperation.newBuilder();
     builder.setPartitionPath(partitionPath);
     builder.setFileId(fileSlice.getFileId());
@@ -91,8 +91,8 @@ public class CompactionUtils {
    * @param metricsCaptureFunction Metrics Capture function
    */
   public static HoodieCompactionPlan buildFromFileSlices(List<Pair<String, FileSlice>> partitionFileSlicePairs,
-      Option<Map<String, String>> extraMetadata,
-      Option<Function<Pair<String, FileSlice>, Map<String, Double>>> metricsCaptureFunction) {
+                                                         Option<Map<String, String>> extraMetadata,
+                                                         Option<Function<Pair<String, FileSlice>, Map<String, Double>>> metricsCaptureFunction) {
     HoodieCompactionPlan.Builder builder = HoodieCompactionPlan.newBuilder();
     extraMetadata.ifPresent(builder::setExtraMetadata);
 

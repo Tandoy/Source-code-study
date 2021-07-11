@@ -19,6 +19,7 @@
 package org.apache.hudi.common.util;
 
 import java.util.stream.Collectors;
+
 import org.apache.hudi.avro.model.HoodieCleanFileInfo;
 import org.apache.hudi.avro.model.HoodieCleanMetadata;
 import org.apache.hudi.avro.model.HoodieCleanPartitionMetadata;

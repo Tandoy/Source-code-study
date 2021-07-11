@@ -32,9 +32,8 @@ import java.util.List;
  */
 public class UnBoundedCompactionStrategy extends CompactionStrategy {
 
-  @Override
   public List<HoodieCompactionOperation> orderAndFilter(HoodieWriteConfig config,
-      List<HoodieCompactionOperation> operations, List<HoodieCompactionPlan> pendingCompactionWorkloads) {
+                                                        List<HoodieCompactionOperation> operations, List<HoodieCompactionPlan> pendingCompactionWorkloads) {
     return operations;
   }
 }

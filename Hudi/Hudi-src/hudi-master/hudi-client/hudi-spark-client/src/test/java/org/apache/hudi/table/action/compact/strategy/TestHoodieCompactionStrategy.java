@@ -18,7 +18,6 @@
 
 package org.apache.hudi.table.action.compact.strategy;
 
-import org.apache.hudi.avro.model.HoodieCompactionOperation;
 import org.apache.hudi.common.model.BaseFile;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieBaseFile;

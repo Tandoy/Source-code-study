@@ -40,7 +40,7 @@ public class UnBoundedPartitionAwareCompactionStrategy extends CompactionStrateg
 
   @Override
   public List<HoodieCompactionOperation> orderAndFilter(HoodieWriteConfig config,
-      final List<HoodieCompactionOperation> operations, final List<HoodieCompactionPlan> pendingCompactionWorkloads) {
+                                                        final List<HoodieCompactionOperation> operations, final List<HoodieCompactionPlan> pendingCompactionWorkloads) {
     BoundedPartitionAwareCompactionStrategy boundedPartitionAwareCompactionStrategy =
         new BoundedPartitionAwareCompactionStrategy();
     List<HoodieCompactionOperation> operationsToExclude =

@@ -59,7 +59,7 @@ public class DayBasedCompactionStrategy extends CompactionStrategy {
 
   @Override
   public List<HoodieCompactionOperation> orderAndFilter(HoodieWriteConfig writeConfig,
-      List<HoodieCompactionOperation> operations, List<HoodieCompactionPlan> pendingCompactionPlans) {
+                                                        List<HoodieCompactionOperation> operations, List<HoodieCompactionPlan> pendingCompactionPlans) {
     // Iterate through the operations and accept operations as long as we are within the configured target partitions
     // limit
     return operations.stream()
