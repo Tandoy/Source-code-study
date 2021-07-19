@@ -679,6 +679,7 @@ public class CliDriver {
     return new Completer[] {propCompleter, customCompletor};
   }
 
+  // 1.程序入口
   public static void main(String[] args) throws Exception {
     int ret = new CliDriver().run(args);
     System.exit(ret);
@@ -686,6 +687,7 @@ public class CliDriver {
 
   public  int run(String[] args) throws Exception {
 
+    // 1.系统相关参数校验
     OptionsProcessor oproc = new OptionsProcessor();
     if (!oproc.process_stage1(args)) {
       return 1;
@@ -712,6 +714,7 @@ public class CliDriver {
       return 3;
     }
 
+    // 2.用户参数校验
     if (!oproc.process_stage2(ss)) {
       return 2;
     }
@@ -784,24 +787,28 @@ public class CliDriver {
     cli.processInitFiles(ss);
 
     if (ss.execString != null) {
+      // -e 'xxxx'
       int cmdProcessStatus = cli.processLine(ss.execString);
       return cmdProcessStatus;
     }
 
     try {
       if (ss.fileName != null) {
+        // -f hive.sql
         return cli.processFile(ss.fileName);
       }
     } catch (FileNotFoundException e) {
       System.err.println("Could not open input file for reading. (" + e.getMessage() + ")");
       return 3;
     }
+    // Hive执行引擎设置，默认MR
     if ("mr".equals(HiveConf.getVar(conf, ConfVars.HIVE_EXECUTION_ENGINE))) {
       console.printInfo(HiveConf.generateMrDeprecationWarning());
     }
 
     setupConsoleReader();
 
+    // 命令行交互查询模式
     String line;
     int ret = 0;
     String prefix = "";
@@ -810,10 +817,10 @@ public class CliDriver {
     String dbSpaces = spacesForString(curDB);
 
     while ((line = reader.readLine(curPrompt + "> ")) != null) {
-      if (!prefix.equals("")) {
+      if (!prefix.equals("")) { // 直接回车
         prefix += '\n';
       }
-      if (line.trim().startsWith("--")) {
+      if (line.trim().startsWith("--")) { // 注释
         continue;
       }
       if (line.trim().endsWith(";") && !line.trim().endsWith("\\;")) {
