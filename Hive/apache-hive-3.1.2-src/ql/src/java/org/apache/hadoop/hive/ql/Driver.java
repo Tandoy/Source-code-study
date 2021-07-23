@@ -613,6 +613,8 @@ public class Driver implements IDriver {
 
       ASTNode tree;
       try {
+        // 1.将HQL语句转换成Token
+        // 2.对Token进行解析，生成AST
         tree = ParseUtils.parse(command, ctx);
       } catch (ParseException e) {
         parseError = true;
@@ -656,6 +658,11 @@ public class Driver implements IDriver {
         generateValidTxnList();
       }
 
+      // 1.将AST转换为QueryBlock
+      // 2.将QueryBlock转换为OperatorTree
+      // 3.OperatorTree进行逻辑优化
+      // 4.生成TaskTree
+      // 5.TaskTree执行物理优化
       sem.analyze(tree, ctx);
 
       if (executeHooks) {
@@ -1706,6 +1713,7 @@ public class Driver implements IDriver {
   public CommandProcessorResponse run(String command, boolean alreadyCompiled) {
 
     try {
+      // alreadyCompiled默认false
       runInternal(command, alreadyCompiled);
       return createProcessorResponse(0);
     } catch (CommandProcessorResponse cpr) {
@@ -1823,6 +1831,7 @@ public class Driver implements IDriver {
 
 
     try {
+      // 开始编译
       compile(command, true, deferClose);
     } catch (CommandProcessorResponse cpr) {
       try {
@@ -1946,6 +1955,7 @@ public class Driver implements IDriver {
 
       if (!alreadyCompiled) {
         // compile internal will automatically reset the perf logger
+        // 进行编译
         compileInternal(command, true);
         // then we continue to use this perf logger
         perfLogger = SessionState.getPerfLogger();
@@ -1984,6 +1994,7 @@ public class Driver implements IDriver {
 
           if (!alreadyCompiled) {
             // compile internal will automatically reset the perf logger
+            // 这里主要是对HQL解析、生成AST、生成OP、根据不用的引擎进行逻辑以及物理执行计划的优化、生成TaskTree
             compileInternal(command, true);
           } else {
             // Since we're reusing the compiled plan, we need to update its start time for current run
@@ -2008,6 +2019,12 @@ public class Driver implements IDriver {
       }
 
       try {
+        // 执行提交任务
+        // 1.获取MR临时工作目录
+        // 3.定义Mapper和Reducer
+        // 2.定义Partitioner
+        // 4.实例化Job
+        // 5.提交Job
         execute();
       } catch (CommandProcessorResponse cpr) {
         rollback(cpr);

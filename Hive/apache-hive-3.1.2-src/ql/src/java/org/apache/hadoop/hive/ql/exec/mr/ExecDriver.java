@@ -226,6 +226,11 @@ public class ExecDriver extends Task<MapredWork> implements Serializable, Hadoop
   @Override
   public int execute(DriverContext driverContext) {
 
+    // 1.获取MR临时工作目录
+    // 2.定义Mapper和Reducer
+    // 3.定义Partitioner
+    // 4.实例化Job
+    // 5.提交Job
     IOPrepareCache ioPrepareCache = IOPrepareCache.get();
     ioPrepareCache.clear();
 
@@ -420,6 +425,7 @@ public class ExecDriver extends Task<MapredWork> implements Serializable, Hadoop
         return 5;
       }
 
+      // 提交MR任务至YARN
       rj = jc.submitJob(job);
 
       if (driverContext.isShutdown()) {

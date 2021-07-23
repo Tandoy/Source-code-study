@@ -73,6 +73,7 @@ public class TaskRunner extends Thread {
     runner = Thread.currentThread();
     try {
       SessionState.start(ss);
+      // 执行
       runSequential();
     } finally {
       try {

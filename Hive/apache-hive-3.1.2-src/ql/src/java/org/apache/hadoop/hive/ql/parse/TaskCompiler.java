@@ -598,6 +598,7 @@ public abstract class TaskCompiler {
   /*
    * Called at the beginning of the compile phase to have another chance to optimize the operator plan
    */
+  // 不同的引擎调用不同的优化，Spark/Tez,MR不用
   protected void optimizeOperatorPlan(ParseContext pCtxSet, Set<ReadEntity> inputs,
       Set<WriteEntity> outputs) throws SemanticException {
   }

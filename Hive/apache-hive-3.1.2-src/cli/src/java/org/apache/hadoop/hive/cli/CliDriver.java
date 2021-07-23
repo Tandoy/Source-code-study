@@ -127,6 +127,7 @@ public class CliDriver {
     String[] tokens = tokenizeCmd(cmd_trimmed);
     int ret = 0;
 
+    // 输入 quit/exit退出
     if (cmd_trimmed.toLowerCase().equals("quit") || cmd_trimmed.toLowerCase().equals("exit")) {
 
       // if we have come this far - either the previous commands
@@ -134,7 +135,7 @@ public class CliDriver {
       // this counts as a successful run
       ss.close();
       System.exit(0);
-
+    // 输入source执行sql文件
     } else if (tokens[0].equalsIgnoreCase("source")) {
       String cmd_1 = getFirstCmd(cmd_trimmed, tokens[0].length());
       cmd_1 = new VariableSubstitution(new HiveVariableSource() {
@@ -157,7 +158,7 @@ public class CliDriver {
           ret = 1;
         }
       }
-    } else if (cmd_trimmed.startsWith("!")) {
+    } else if (cmd_trimmed.startsWith("!")) {// 输入 ! 执行shell
       // for shell commands, use unstripped command
       String shell_cmd = cmd.trim().substring(1);
       shell_cmd = new VariableSubstitution(new HiveVariableSource() {
@@ -349,6 +350,7 @@ public class CliDriver {
     SignalHandler oldSignal = null;
     Signal interruptSignal = null;
 
+    // 交互程序相关
     if (allowInterrupting) {
       // Remember all threads that were running at the time we started line processing.
       // Hook up the custom Ctrl+C handler while processing this line
@@ -384,6 +386,7 @@ public class CliDriver {
       int lastRet = 0, ret = 0;
 
       // we can not use "split" function directly as ";" may be quoted
+      // 以';'切分sql语句
       List<String> commands = splitSemiColon(line);
 
       String command = "";

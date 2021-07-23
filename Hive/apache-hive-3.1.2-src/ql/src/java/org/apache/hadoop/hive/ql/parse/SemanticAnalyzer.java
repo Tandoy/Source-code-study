@@ -12126,6 +12126,7 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
     //change the location of position alias process here
     processPositionAlias(ast);
     PlannerContext plannerCtx = pcf.create();
+    // 1.处理AST转换为QueryBlock
     if (!genResolvedParseTree(ast, plannerCtx)) {
       return;
     }
@@ -12161,6 +12162,7 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
     }
 
     // 2. Gen OP Tree from resolved Parse Tree
+    // 2.得到操作树
     Operator sinkOp = genOPTree(ast, plannerCtx);
 
     boolean usesMasking = false;
@@ -12211,6 +12213,7 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
     }
 
     // 4. Generate Parse Context for Optimizer & Physical compiler
+    // OperatorTree进行逻辑优化
     copyInfoToQueryProperties(queryProperties);
     ParseContext pCtx = new ParseContext(queryState, opToPartPruner, opToPartList, topOps,
         new HashSet<JoinOperator>(joinContext.keySet()),
@@ -12292,6 +12295,7 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
     Optimizer optm = new Optimizer();
     optm.setPctx(pCtx);
     optm.initialize(conf);
+    // 执行优化
     pCtx = optm.optimize();
     if (pCtx.getColumnAccessInfo() != null) {
       // set ColumnAccessInfo for view column authorization
@@ -12314,6 +12318,7 @@ public class SemanticAnalyzer extends BaseSemanticAnalyzer {
 
     // 9. Optimize Physical op tree & Translate to target execution engine (MR,
     // TEZ..)
+    // TaskTree执行物理优化
     if (!ctx.getExplainLogical()) {
       TaskCompiler compiler = TaskCompilerFactory.getCompiler(conf, pCtx);
       compiler.init(queryState, console, db);

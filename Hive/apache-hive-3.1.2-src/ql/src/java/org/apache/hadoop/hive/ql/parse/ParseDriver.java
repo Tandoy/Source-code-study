@@ -198,7 +198,9 @@ public class ParseDriver {
       LOG.debug("Parsing command: " + command);
     }
 
+    // 1.构建词法解析器
     HiveLexerX lexer = new HiveLexerX(new ANTLRNoCaseStringStream(command));
+    // 2.将 HQL 中的关键词替换为 Toke
     TokenRewriteStream tokens = new TokenRewriteStream(lexer);
     if (ctx != null) {
       if (viewFullyQualifiedName == null) {
@@ -210,6 +212,7 @@ public class ParseDriver {
       }
       lexer.setHiveConf(ctx.getConf());
     }
+    // 3.创建解析器
     HiveParser parser = new HiveParser(tokens);
     if (ctx != null) {
       parser.setHiveConf(ctx.getConf());
@@ -217,6 +220,7 @@ public class ParseDriver {
     parser.setTreeAdaptor(adaptor);
     HiveParser.statement_return r = null;
     try {
+      // 4.解析
       r = parser.statement();
     } catch (RecognitionException e) {
       e.printStackTrace();
@@ -231,6 +235,7 @@ public class ParseDriver {
       throw new ParseException(parser.errors);
     }
 
+    // 得到AST树
     ASTNode tree = (ASTNode) r.getTree();
     tree.setUnknownTokenBoundaries();
     return tree;
