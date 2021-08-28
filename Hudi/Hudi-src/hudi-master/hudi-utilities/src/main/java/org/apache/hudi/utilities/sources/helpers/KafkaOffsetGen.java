@@ -158,6 +158,12 @@ public class KafkaOffsetGen {
     private static final String KAFKA_TOPIC_NAME = "hoodie.deltastreamer.source.kafka.topic";
     private static final String MAX_EVENTS_FROM_KAFKA_SOURCE_PROP = "hoodie.deltastreamer.kafka.source.maxEvents";
     // "auto.reset.offsets" is kafka native config param. Do not change the config param name.
+    /**
+     * 5.Hudi-DeltaStreamer总是从最新偏移量开始消费 issue#3471 & issue#3490
+     *Q：When I reverted to Kafka to produce new channel data, HoodieDeltaStreamer data can use the latest Kafka, but the original data is not ingested. But what I have set in the configuration file is auto.offset.reset=earliest.
+     *A：I checked the source code and found that KAFKA_AUTO_RESET_OFFSETS = "auto.reset.offsets" was used by default when creating the KafkaOffsetGen class, but the official configuration file kafka-source.properties was auto.offset.reset.
+     *  And the latest version of hudi has been fixed
+     */
     public static final String KAFKA_AUTO_RESET_OFFSETS = "auto.reset.offsets";
     private static final KafkaResetOffsetStrategies DEFAULT_KAFKA_AUTO_RESET_OFFSETS = KafkaResetOffsetStrategies.LATEST;
     public static final long DEFAULT_MAX_EVENTS_FROM_KAFKA_SOURCE = 5000000;
