@@ -56,6 +56,18 @@ import static java.util.Objects.requireNonNull;
  * @param <IN1> Type of the first input data steam.
  * @param <IN2> Type of the second input data stream.
  */
+
+/**
+ * 在 DataStream 上有一个 union 的转换 dataStream.union(otherStream1, otherStream2, ...)，用来合并多个流，新的流会包含所有流中的数据。union 有一个限制，就是所有合并的流的类型必须是一致的。ConnectedStreams 提供了和 union 类似的功能，用来连接两个流，但是与 union 转换有以下几个区别：
+ *
+ *  1.ConnectedStreams 只能连接两个流，而 union 可以连接多于两个流。
+ *  2.ConnectedStreams 连接的两个流类型可以不一致，而 union 连接的流的类型必须一致。
+ *  3.ConnectedStreams 会对两个流的数据应用不同的处理方法，并且双流之间可以共享状态。这在第一个流的输入会影响第二个流时, 会非常有用。
+ *
+ *  ConnectedStreams 的样例:连接 input 和 other 流，并在input流上应用map1方法，在other上应用map2方法，双流可以共享状态（比如计数）。
+ * @param <IN1>
+ * @param <IN2>
+ */
 @Public
 public class ConnectedStreams<IN1, IN2> {
 

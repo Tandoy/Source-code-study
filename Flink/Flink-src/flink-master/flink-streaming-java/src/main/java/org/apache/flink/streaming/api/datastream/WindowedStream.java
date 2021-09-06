@@ -67,6 +67,15 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @param <K> The type of the key by which elements are grouped.
  * @param <W> The type of {@code Window} that the {@code WindowAssigner} assigns the elements to.
  */
+
+/**
+ * Flink 的窗口实现中会将到达的数据缓存在对应的窗口buffer中（一个数据可能会对应多个窗口）。
+ * 当到达窗口发送的条件时（由Trigger控制），Flink 会对整个窗口中的数据进行处理。
+ * Flink 在聚合类窗口有一定的优化，即不会保存窗口中的所有值，而是每到一个元素执行一次聚合函数，最终只保存一份数据即可。
+ * @param <T>
+ * @param <K>
+ * @param <W>
+ */
 @Public
 public class WindowedStream<T, K, W extends Window> {
 

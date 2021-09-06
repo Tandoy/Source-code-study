@@ -60,6 +60,12 @@ import static java.util.Objects.requireNonNull;
  *     .apply(new MyJoinFunction());
  * }</pre>
  */
+
+/**
+ * 双流上的数据在同一个key的会被分别分配到同一个window窗口的左右两个篮子里，当window结束的时候，会对左右篮子进行笛卡尔积从而得到每一对pair，对每一对pair应用 JoinFunction。
+ * @param <T1>
+ * @param <T2>
+ */
 @Public
 public class JoinedStreams<T1, T2> {
 
