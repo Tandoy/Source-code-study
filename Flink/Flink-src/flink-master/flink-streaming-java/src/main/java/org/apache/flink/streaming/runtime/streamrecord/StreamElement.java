@@ -33,7 +33,7 @@ public abstract class StreamElement {
      */
     public final boolean isWatermark() {
         return getClass() == Watermark.class;
-    }
+    } //水位线
 
     /**
      * Checks whether this element is a stream status.
@@ -42,7 +42,7 @@ public abstract class StreamElement {
      */
     public final boolean isStreamStatus() {
         return getClass() == StreamStatus.class;
-    }
+    } //状态标记
 
     /**
      * Checks whether this element is a record.
@@ -51,7 +51,7 @@ public abstract class StreamElement {
      */
     public final boolean isRecord() {
         return getClass() == StreamRecord.class;
-    }
+    } //数据记录
 
     /**
      * Checks whether this element is a latency marker.
@@ -60,7 +60,7 @@ public abstract class StreamElement {
      */
     public final boolean isLatencyMarker() {
         return getClass() == LatencyMarker.class;
-    }
+    } //延迟标记
 
     /**
      * Casts this element into a StreamRecord.

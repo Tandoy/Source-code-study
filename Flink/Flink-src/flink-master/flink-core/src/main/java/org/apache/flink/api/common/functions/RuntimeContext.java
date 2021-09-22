@@ -55,7 +55,7 @@ import java.util.Set;
  * AbstractRichFunction#getRuntimeContext()}.
  */
 @Public
-public interface RuntimeContext {
+public interface RuntimeContext { //运行时上下文
 
     /**
      * The ID of the current job. Note that Job ID can change in particular upon manual restart. The

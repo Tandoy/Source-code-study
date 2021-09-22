@@ -54,7 +54,7 @@ import java.util.concurrent.Future;
  * parallelism), the configurations, the data stream readers and writers, as well as the various
  * components that are provided by the TaskManager, such as memory manager, I/O manager, ...
  */
-public interface Environment {
+public interface Environment { //运行时环境
 
     /**
      * Returns the job specific {@link ExecutionConfig}.

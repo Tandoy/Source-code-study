@@ -31,7 +31,7 @@ import org.apache.flink.streaming.api.operators.ChainingStrategy;
  * @see Transformation
  */
 @Internal
-public abstract class PhysicalTransformation<T> extends Transformation<T> {
+public abstract class PhysicalTransformation<T> extends Transformation<T> { // PhysicalTransformation会转换成算子，但虚拟Transformation不会形成实体的算子例如：  Reblance、Union、Split、Select等
 
     /**
      * Creates a new {@code Transformation} with the given name, output type and parallelism.

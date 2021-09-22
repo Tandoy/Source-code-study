@@ -129,7 +129,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @see org.apache.flink.streaming.api.environment.RemoteStreamEnvironment
  */
 @Public
-public class StreamExecutionEnvironment {
+public class StreamExecutionEnvironment { //执行环境
 
     /** The default name to use for a streaming job if no other name has been specified. */
     public static final String DEFAULT_JOB_NAME = "Flink Streaming Job";
