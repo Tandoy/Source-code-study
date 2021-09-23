@@ -43,6 +43,12 @@ import java.io.Serializable;
  *
  * @param <OUT> The output type of the operator
  */
+//类关系图如下：
+    // 0.StreamOperator
+    // 1.AbstractStreamOperator
+    // 2.AbstractUdfStreamOperator (Flink体系)
+    // 2.TableStreamOperator（Blink体系）
+    // 3.具体内置算子
 @PublicEvolving
 public interface StreamOperator<OUT>
         extends CheckpointListener, KeyContext, Disposable, Serializable {

@@ -21,8 +21,8 @@ import org.apache.flink.annotation.PublicEvolving;
 
 /** Interface for the one-input operators that can process EndOfInput event. */
 @PublicEvolving
-public interface BoundedOneInput {
+public interface BoundedOneInput { // Blink中所有支持批计算的算子都实现此接口
 
     /** It is notified that no more data will arrive on the input. */
-    void endInput() throws Exception;
+    void endInput() throws Exception; // 用来标识数据是否有界
 }
