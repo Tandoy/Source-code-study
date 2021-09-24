@@ -41,7 +41,7 @@ import java.util.Collection;
  * @param <W> The type of {@code Window} that this assigner assigns.
  */
 @PublicEvolving
-public abstract class WindowAssigner<T, W extends Window> implements Serializable {
+public abstract class WindowAssigner<T, W extends Window> implements Serializable { //用来确定当前进来的元素被分配到哪个窗口/哪些窗口
     private static final long serialVersionUID = 1L;
 
     /**

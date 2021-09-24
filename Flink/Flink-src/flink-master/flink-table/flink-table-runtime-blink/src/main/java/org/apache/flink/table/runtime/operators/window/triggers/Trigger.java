@@ -42,7 +42,7 @@ import java.io.Serializable;
  *
  * @param <W> The type of {@link Window Windows} on which this {@code Trigger} can operate.
  */
-public abstract class Trigger<W extends Window> implements Serializable {
+public abstract class Trigger<W extends Window> implements Serializable { //用来确定一个窗口何时能够被计算或者清理，每个窗口都会有自己的Trigger
 
     private static final long serialVersionUID = -4104633972991191369L;
 
@@ -62,7 +62,7 @@ public abstract class Trigger<W extends Window> implements Serializable {
      * @param window The window to which the element is being added.
      * @return true for firing the window, false for no action
      */
-    public abstract boolean onElement(Object element, long timestamp, W window) throws Exception;
+    public abstract boolean onElement(Object element, long timestamp, W window) throws Exception; //基于元素个数触发
 
     /**
      * Called when a processing-time timer that was set using the trigger context fires.
@@ -76,7 +76,7 @@ public abstract class Trigger<W extends Window> implements Serializable {
      * @param window The window for which the timer fired.
      * @return true for firing the window, false for no action
      */
-    public abstract boolean onProcessingTime(long time, W window) throws Exception;
+    public abstract boolean onProcessingTime(long time, W window) throws Exception; //基于处理时间触发
 
     /**
      * Called when an event-time timer that was set using the trigger context fires.
@@ -90,7 +90,7 @@ public abstract class Trigger<W extends Window> implements Serializable {
      * @param window The window for which the timer fired.
      * @return true for firing the window, false for no action
      */
-    public abstract boolean onEventTime(long time, W window) throws Exception;
+    public abstract boolean onEventTime(long time, W window) throws Exception; //基于事件时间也就是watermark触发
 
     /**
      * Returns true if this trigger supports merging of trigger state and can therefore.

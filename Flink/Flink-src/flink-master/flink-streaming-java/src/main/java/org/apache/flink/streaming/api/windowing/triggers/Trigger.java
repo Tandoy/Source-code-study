@@ -53,7 +53,7 @@ import java.io.Serializable;
  * @param <W> The type of {@link Window Windows} on which this {@code Trigger} can operate.
  */
 @PublicEvolving
-public abstract class Trigger<T, W extends Window> implements Serializable {
+public abstract class Trigger<T, W extends Window> implements Serializable { //用来确定一个窗口何时能够被计算或者清理，每个窗口都会有自己的Trigger
 
     private static final long serialVersionUID = -4104633972991191369L;
 
