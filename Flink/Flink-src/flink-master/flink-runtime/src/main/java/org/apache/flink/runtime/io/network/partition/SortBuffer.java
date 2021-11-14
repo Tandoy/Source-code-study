@@ -28,6 +28,15 @@ import java.nio.ByteBuffer;
  * Data of different channels can be appended to a {@link SortBuffer} and after the {@link
  * SortBuffer} is finished, the appended data can be copied from it in channel index order.
  */
+
+/**
+ * 基于 hash 的实现会产生大量的文件，而减少文件的数量有利于提高稳定性和性能。
+ * Sort-Spill-Merge 的方式被分布式计算系统广泛采纳以达到这一目标，首先将数据写入内存缓冲区，
+ * 当内存缓冲区填满后对数据进行排序(桶排序)，排序后的数据被写出到一个文件中，这样总的文件数量是：（总数据量 / 内存缓冲区大小），从而文件数量被减少。
+ * 当所有数据写出完成后，将产生的文件合并成一个文件，从而进一步减少文件数量并增大每个数据分区的大小（有利于顺序读取）。
+ *
+ * https://mp.weixin.qq.com/s/M5lGOYu0Bwaspa8G0x5NHQ
+ */
 public interface SortBuffer {
 
     /**
